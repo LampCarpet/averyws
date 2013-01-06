@@ -1,7 +1,5 @@
 //ws_frame.h
 //
-//This is all about bits and bytes so put your "Electical Engineer C-style cast-fest" hat on.   
-//This wouldn't be such a hack if dealing with binary data wasn't a hack.
 //
 // 0                   1                   2                   3           
 // 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1    Dec|Hex|Oct|Bin
@@ -23,7 +21,6 @@
 //+---------------------------------------------------------------+   14 |E  |16 |1110
 //                                                                    15 |F  |17 |1111
 
-//The constructor will set the mask to 0x0 and unmask the data
 #ifndef WS_FRAME
 #define WS_FRAME
 
