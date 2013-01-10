@@ -27,7 +27,8 @@
 #include <cstdint>
 
 #include <stdexcept>
-#include <cstdint>
+#include <utilities_random.h>
+
 //debug#include <iostream>
 
 namespace Websocket {
@@ -163,11 +164,13 @@ Frame<T>::Frame(T &buffer,uint64_t reserved_header_length, uint64_t data_length,
         mask_offset_ = frame_offset_ + 1 + data_length_byte_size_;
         data_offset_ = frame_offset_ + 1 + 4 + data_length_byte_size_;
         it_t mask = buffer_.begin() + mask_offset_;
-        //TODO use openssl and generate 8 random bytes
-        mask[0] = 0x37;
-        mask[1] = 0xFA;
-        mask[2] = 0x21;
-        mask[3] = 0x3D;
+        
+        std::vector<unsigned uint8_t> random_bytes = Utilities::Random::bytes_safe(4);
+        //debugstd::cout << "mask: " << random_bytes[0] << " " << random_bytes[1] << " " << random_bytes[2] << " " << random_bytes[3] << std::endl;
+        mask[0] = static_cast<uint8_t>(random_bytes[0]);
+        mask[1] = static_cast<uint8_t>(random_bytes[1]);
+        mask[2] = static_cast<uint8_t>(random_bytes[2]);
+        mask[3] = static_cast<uint8_t>(random_bytes[3]);
         consume();
     } else {
         data_offset_ = 1 + data_length_byte_size_;
