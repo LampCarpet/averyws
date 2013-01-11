@@ -1,13 +1,5 @@
 #include <utilities_chunk_vector.h>
 #include <iostream>
-#include <string>
-
-#include <ios>
-
-#include <cstring>
-#include <vector>
-#include <array>
-#include <algorithm>
 
 int main(){
 
@@ -28,9 +20,14 @@ int main(){
     }
     chunks.close_last_chunk(2);
 
-    for( auto i = chunks.begin(); i != chunks.end(); ++i)
+    for( auto i = chunks.cbegin(); i != chunks.cend(); ++i)
     {
         std::cout << *i << std::endl;
+    }
+    
+    for( int i = 0; i != chunks.size(); ++i)
+    {
+        std::cout << chunks[i] << std::endl;
     }
 
 

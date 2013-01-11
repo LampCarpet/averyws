@@ -252,15 +252,16 @@ uint64_t Frame<T>::consume() {
     if(consume >= 4) {
         //debugstd::cout << "consuming more than 4 bytes: " << consume << std::endl;
         for( cit_t end_4 = end-4 ; it <= end_4; it+=4) {
-            //debugstd::cout << "consumed 4 bytes " << std::string(it,it+4);
+            //debugstd::cout << "consumed 4 bytes " << *it << *(it+1)<< *(it+2)<< *(it+3);
             it[0] ^= mask[(data_consumed_ + 0) % 4];
             it[1] ^= mask[(data_consumed_ + 1) % 4];
             it[2] ^= mask[(data_consumed_ + 2) % 4];
             it[3] ^= mask[(data_consumed_ + 3) % 4];
             data_consumed_ += 4;
-            //debugstd::cout << " to " << std::string(it,it+4) <<  std::endl;
+            //debugstd::cout << " to " << *it << *(it+1)<< *(it+2)<< *(it+3);
         }
     }
+    //debugstd::cout << "here" << std::endl;
     //there can potentially be 4 bytes left in the data stream to be unmasked 1 byte at a time
     for(;it < end;++it) {
             //debugstd::cout << "consuming 1 byte " << *it;

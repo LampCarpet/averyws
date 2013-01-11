@@ -7,12 +7,17 @@
 
 #include <utilities_chunk_vector_iterator.h>
 
+#include <iostream>
+
 namespace Utilities {
 
 
 template<class T,uint64_t N>
 class ChunkVector {
     public:
+        typedef ChunkVectorIterator<T,N> iterator;
+        typedef ChunkVectorIterator<T,N> const_iterator;
+
         ChunkVector();
         uint64_t size() const;
 
@@ -22,10 +27,15 @@ class ChunkVector {
         void close_last_chunk(uint64_t chunk_size);
         
         T& operator[] (const int index);
-        ChunkVectorIterator<T,N> begin();
-        const ChunkVectorIterator<T,N> cbegin() const;
-        ChunkVectorIterator<T,N> end();
-        const ChunkVectorIterator<T,N> cend() const;
+        const T& operator[] (const int index) const;
+
+        iterator begin();
+        const_iterator begin() const;
+        const_iterator cbegin() const;
+
+        iterator end();
+        const_iterator end() const;
+        const_iterator cend() const;
     private:
         std::vector<std::unique_ptr<T[]> > chunk_vector_;
         uint64_t size_;
@@ -73,28 +83,45 @@ void ChunkVector<T,N>::close_last_chunk(uint64_t chunk_size){
 
 template<class T,uint64_t N>
 T& ChunkVector<T,N>::operator[] (const int index) {
+    std::cout << "requesting index:" << index << "chunk size: " << N << "vec size: " << chunk_vector_.size() << std::endl;
     return chunk_vector_[index/N][index % N];
 }
 
 template<class T,uint64_t N>
-ChunkVectorIterator<T,N> ChunkVector<T,N>::begin() {
-    return ChunkVectorIterator<T,N>(*this,0);
+const T& ChunkVector<T,N>::operator[] (const int index) const{
+    return chunk_vector_[index/N][index % N];
 }
 
 template<class T,uint64_t N>
-const ChunkVectorIterator<T,N> ChunkVector<T,N>::cbegin() const{
-    return ChunkVectorIterator<T,N>(*this,0);
+typename ChunkVector<T,N>::iterator ChunkVector<T,N>::begin() {
+    return ChunkVectorIterator<T,N>(this,0);
 }
 
 template<class T,uint64_t N>
-ChunkVectorIterator<T,N> ChunkVector<T,N>::end() {
-    return ChunkVectorIterator<T,N>(*this,size_);
+typename ChunkVector<T,N>::const_iterator ChunkVector<T,N>::begin() const{
+    return ChunkVectorIterator<T,N>(this,0);
 }
 
 template<class T,uint64_t N>
-const ChunkVectorIterator<T,N> ChunkVector<T,N>::cend() const{
-    return ChunkVectorIterator<T,N>(*this,size_);
+typename ChunkVector<T,N>::const_iterator ChunkVector<T,N>::cbegin() const{
+    return ChunkVectorIterator<T,N>(this,0);
 }
+
+template<class T,uint64_t N>
+typename ChunkVector<T,N>::iterator ChunkVector<T,N>::end() {
+    return ChunkVectorIterator<T,N>(this,size_);
+}
+
+template<class T,uint64_t N>
+typename ChunkVector<T,N>::const_iterator ChunkVector<T,N>::end() const{
+    return ChunkVectorIterator<T,N>(this,size_);
+}
+
+template<class T,uint64_t N>
+typename ChunkVector<T,N>::const_iterator ChunkVector<T,N>::cend() const{
+    return ChunkVectorIterator<T,N>(this,size_);
+}
+
 }
 
 #endif
