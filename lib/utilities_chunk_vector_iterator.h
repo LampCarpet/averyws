@@ -17,19 +17,21 @@ class ChunkVectorIterator : public std::iterator<std::random_access_iterator_tag
   ChunkVectorIterator(const ChunkVectorIterator<T,N>& it);
 
   ChunkVectorIterator<T,N>& operator++();
-  ChunkVectorIterator<T,N> operator++(int placeholder);
-  ChunkVectorIterator<T,N> operator+(int diff);
-  ChunkVectorIterator<T,N> operator+(const ChunkVectorIterator<T,N> &rhs);
+  ChunkVectorIterator<T,N> operator++(const int placeholder);
+  ChunkVectorIterator<T,N> operator+(const int diff) const;
+  ChunkVectorIterator<T,N> operator+(const ChunkVectorIterator<T,N> &rhs) const;
 
   ChunkVectorIterator<T,N>& operator--();
-  ChunkVectorIterator<T,N> operator--(int placeholder);
-  ChunkVectorIterator<T,N> operator-(int diff);
-  ChunkVectorIterator<T,N> operator-(const ChunkVectorIterator<T,N> &rhs);
+  ChunkVectorIterator<T,N> operator--(const int placeholder);
+  ChunkVectorIterator<T,N> operator-(const int diff) const;
+  ChunkVectorIterator<T,N> operator-(const ChunkVectorIterator<T,N> &rhs) const;
   
   ChunkVectorIterator<T,N>& operator=(const ChunkVectorIterator<T,N>& it);
 
-  ChunkVectorIterator<T,N>& operator+=(int diff);
-  ChunkVectorIterator<T,N>& operator-=(int diff);
+  ChunkVectorIterator<T,N>& operator+=(const int diff);
+  ChunkVectorIterator<T,N>& operator-=(const int diff);
+
+  const uint64_t pos() const;
 
   T& operator[](const int index);
   T& operator*();
@@ -67,21 +69,21 @@ ChunkVectorIterator<T,N>& ChunkVectorIterator<T,N>::operator++() {
 }
 
 template<class T, uint64_t N>
-ChunkVectorIterator<T,N> ChunkVectorIterator<T,N>::operator++(int placeholder) {
+ChunkVectorIterator<T,N> ChunkVectorIterator<T,N>::operator++(const int placeholder){
     ChunkVectorIterator<T,N> tmp(*this);
     ++pos_;
     return tmp;
 }
 
 template<class T, uint64_t N>
-ChunkVectorIterator<T,N> ChunkVectorIterator<T,N>::operator+(int diff) {
+ChunkVectorIterator<T,N> ChunkVectorIterator<T,N>::operator+(const int diff) const{
     ChunkVectorIterator<T,N> tmp(*this);
     tmp.pos_ += diff;
     return tmp;
 }
 
 template<class T, uint64_t N>
-ChunkVectorIterator<T,N> ChunkVectorIterator<T,N>::operator+(const ChunkVectorIterator<T,N> &rhs) {
+ChunkVectorIterator<T,N> ChunkVectorIterator<T,N>::operator+(const ChunkVectorIterator<T,N> &rhs) const {
     ChunkVectorIterator<T,N> tmp(*this);
     tmp.pos_ += rhs.pos_;
     return tmp;
@@ -94,21 +96,21 @@ ChunkVectorIterator<T,N>& ChunkVectorIterator<T,N>::operator--() {
 }
 
 template<class T, uint64_t N>
-ChunkVectorIterator<T,N> ChunkVectorIterator<T,N>::operator--(int placeholder) {
+ChunkVectorIterator<T,N> ChunkVectorIterator<T,N>::operator--(const int placeholder) {
     ChunkVectorIterator<T,N> tmp(*this);
     --pos_;
     return tmp;
 }
 
 template<class T, uint64_t N>
-ChunkVectorIterator<T,N> ChunkVectorIterator<T,N>::operator-(int diff) {
+ChunkVectorIterator<T,N> ChunkVectorIterator<T,N>::operator-(const int diff) const{
     ChunkVectorIterator<T,N> tmp(*this);
     tmp.pos_ -= diff;
     return tmp;
 }
 
 template<class T, uint64_t N>
-ChunkVectorIterator<T,N> ChunkVectorIterator<T,N>::operator-(const ChunkVectorIterator<T,N> &rhs) {
+ChunkVectorIterator<T,N> ChunkVectorIterator<T,N>::operator-(const ChunkVectorIterator<T,N> &rhs) const{
     ChunkVectorIterator<T,N> tmp(*this);
     tmp.pos_ -= rhs.pos_;
     return tmp;
@@ -122,15 +124,20 @@ ChunkVectorIterator<T,N>& ChunkVectorIterator<T,N>::operator=(const ChunkVectorI
 }
 
 template<class T, uint64_t N>
-ChunkVectorIterator<T,N>& ChunkVectorIterator<T,N>::operator+=(int diff) {
+ChunkVectorIterator<T,N>& ChunkVectorIterator<T,N>::operator+=(const int diff) {
     pos_+= diff;
     return *this;
 }
 
 template<class T, uint64_t N>
-ChunkVectorIterator<T,N>& ChunkVectorIterator<T,N>::operator-=(int diff) {
+ChunkVectorIterator<T,N>& ChunkVectorIterator<T,N>::operator-=(const int diff) {
     pos_-= diff;
     return *this;
+}
+  
+template<class T, uint64_t N>
+const uint64_t ChunkVectorIterator<T,N>::pos() const { 
+    return pos_;
 }
 
 template<class T, uint64_t N>

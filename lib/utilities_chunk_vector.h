@@ -7,7 +7,7 @@
 
 #include <utilities_chunk_vector_iterator.h>
 
-#include <iostream>
+//debug#include <iostream>
 
 namespace Utilities {
 
@@ -16,6 +16,8 @@ template<class T,uint64_t N>
 class ChunkVector {
     public:
         typedef ChunkVectorIterator<T,N> iterator;
+        //TODO, make const_iterator work with:
+        //typedef const ChunkVectorIterator<T,N> const_iterator;
         typedef ChunkVectorIterator<T,N> const_iterator;
 
         ChunkVector();
@@ -24,7 +26,8 @@ class ChunkVector {
         T* last_chunk();
         T* new_chunk();
         uint64_t chunk_size() const;
-        void close_last_chunk(uint64_t chunk_size);
+        void close_last_chunk(const uint64_t chunk_size);
+        const_iterator end_of_chunk(const_iterator &it) const;
         
         T& operator[] (const int index);
         const T& operator[] (const int index) const;
@@ -75,20 +78,30 @@ uint64_t ChunkVector<T,N>::chunk_size() const{
 }
 
 template<class T,uint64_t N>
-void ChunkVector<T,N>::close_last_chunk(uint64_t chunk_size){
+void ChunkVector<T,N>::close_last_chunk(const uint64_t chunk_size){
     last_chunk_size_ = chunk_size;
     size_ = static_cast<int64_t>( size_ - (N - chunk_size) );
     open_ = false;
 }
 
 template<class T,uint64_t N>
+typename ChunkVector<T,N>::const_iterator ChunkVector<T,N>::ChunkVector<T,N>::end_of_chunk(typename ChunkVector<T,N>::const_iterator &it) const{
+    uint64_t pos = N*(it.pos()/N + 1);
+    if( pos > size_ ) {
+       pos = size_; 
+    }
+    return ChunkVector<T,N>::const_iterator(this, pos);
+}
+
+template<class T,uint64_t N>
 T& ChunkVector<T,N>::operator[] (const int index) {
-    std::cout << "requesting index:" << index << "chunk size: " << N << "vec size: " << chunk_vector_.size() << std::endl;
+    //debugstd::cout << "requesting index:" << index << "chunk size: " << N << "vec size: " << chunk_vector_.size() << "pos: " << index/N << "," << index % N << std::endl;
     return chunk_vector_[index/N][index % N];
 }
 
 template<class T,uint64_t N>
 const T& ChunkVector<T,N>::operator[] (const int index) const{
+    //debugstd::cout << "requesting const index:" << index << "chunk size: " << N << "vec size: " << chunk_vector_.size() << "pos: " << index/N << "," << index % N << std::endl;
     return chunk_vector_[index/N][index % N];
 }
 

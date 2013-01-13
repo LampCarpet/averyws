@@ -233,7 +233,7 @@ uint64_t Frame<T>::consume() {
     uint64_t consume = data_length_ - data_consumed_;
     cit_t end = data + data_length_;
     //debugstd::cout << "consuming " << consume << std::endl;
-    if( buffer_.size() < data_length_ ){
+    if( buffer_.size() < data_length_ + data_offset_ ){
         //buffer doesn't contain all the data so we will read as much as we can
         consume = static_cast<int64_t>(buffer_.size() - data_offset_ - data_consumed_);
         end = buffer_.cend();
@@ -258,7 +258,7 @@ uint64_t Frame<T>::consume() {
             it[2] ^= mask[(data_consumed_ + 2) % 4];
             it[3] ^= mask[(data_consumed_ + 3) % 4];
             data_consumed_ += 4;
-            //debugstd::cout << " to " << *it << *(it+1)<< *(it+2)<< *(it+3);
+            //debugstd::cout << " to " << *it << *(it+1)<< *(it+2)<< *(it+3) << std::endl;
         }
     }
     //debugstd::cout << "here" << std::endl;
