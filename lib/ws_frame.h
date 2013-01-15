@@ -47,6 +47,8 @@ class Frame {
    
     bool fin() const;
     uint64_t consumed();
+    bool headerConsume();
+    bool header_consumed_;
     
     void update_buffer(T &buffer);
     uint64_t consume();
@@ -69,13 +71,17 @@ class Frame {
     uint8_t mask_offset_;
     
     uint64_t data_consumed_;
+    uint64_t header_size_required_;
 
-    void frame2flags();
-    void frame2length();
+    void process_header();
     void flags2frame(uint16_t flags);
     void length2frame(uint64_t data_length);
 };
 
+template<class T>
+void Frame<T>::process_header() {
+
+}
 
 template<class T>
 typename Frame<T>::it_t Frame<T>::data() { return buffer_.begin() + data_offset_;}
@@ -110,18 +116,70 @@ Frame<T>::Frame(T &buffer,uint64_t frame_offset):
      buffer_(buffer)
     ,frame_offset_(frame_offset)
     ,data_consumed_(0)
-{
-    cit_t frame = buffer_.cbegin() + frame_offset_;
-    frame2length();
-    if(frame[1] & 0x80) {
-        mask_offset_ = frame_offset_ + 1 + data_length_byte_size_;
-        //move data by 4 bytes since the mask takes 4 bytes
-        data_offset_ = frame_offset_ + 1 + data_length_byte_size_ + 4;
-        consume();
-    } else {
-        //there is no mask
-        data_offset_ = frame_offset_ + 1 + data_length_byte_size_;
+    ,header_size_required_(2 + frame_offset)
+    ,header_consumed_(false)
+    ,data_offset_(0){
+
+    if( frame_offset > buffer.size()) {
+        throw std::length_error("frame offset is larger than the buffer size");
     }
+    cit_t frame = buffer_.cbegin() + frame_offset_;
+    consume();
+}
+
+template<class T>
+bool Frame<T>::headerConsume() {
+    if(header_consumed_) {
+        //debugstd::cout << "header has been read before" << std::endl;
+        return true;
+    }
+    
+    if (buffer_.size() < header_size_required_) {
+        //debugstd::cout << "header has not completely been read" << std::endl;
+        return false;
+    }
+
+    cit_t frame = buffer_.cbegin() + frame_offset_;
+    data_length_ = frame[1] & 0x7F;
+    if(data_length_ <= 125) {
+        data_length_byte_size_ = 1;
+    } else if(data_length_ == 126) {
+        data_length_byte_size_ = 3;
+        header_size_required_ +=2;
+    } else if (data_length_ == 127) {
+        data_length_byte_size_ = 9;
+        header_size_required_ += 8;
+    }
+
+    if(buffer_.size() < header_size_required_) {
+        return false;
+    }
+
+    if(data_length_ == 126) {
+        data_length_ = (static_cast<uint64_t>(frame[2]) << 8) 
+                     | (static_cast<uint64_t>(frame[3]) << 0);
+    } else if (data_length_ == 127) {
+        data_length_ = (static_cast<uint64_t>(frame[2]) << 56) 
+                     | (static_cast<uint64_t>(frame[3]) << 48)
+                     | (static_cast<uint64_t>(frame[4]) << 40)
+                     | (static_cast<uint64_t>(frame[5]) << 32)
+                     | (static_cast<uint64_t>(frame[6]) << 24)
+                     | (static_cast<uint64_t>(frame[7]) << 16)
+                     | (static_cast<uint64_t>(frame[8]) <<  8) 
+                     | (static_cast<uint64_t>(frame[9]) <<  0);
+    }
+    if(data_offset_ == 0) {
+        if(frame[1] & 0x80) {
+            mask_offset_ = frame_offset_ + 1 + data_length_byte_size_;
+            data_offset_ = frame_offset_ + 1 + data_length_byte_size_ + 4;
+            header_size_required_ += 4;
+        } else {
+            data_offset_ = frame_offset_ + 1 + data_length_byte_size_;
+        }
+    }
+    header_consumed_ = buffer_.size() >= header_size_required_;
+    //debugstd::cout << "header consumed? " << header_consumed_ << std::endl;
+    return header_consumed_;
 }
 
 //before:
@@ -151,11 +209,11 @@ Frame<T>::Frame(T &buffer,uint64_t reserved_header_length, uint64_t data_length,
      buffer_(buffer)
     ,data_consumed_(0)
 {
-    uint64_t size = reserve(data_length,flags);
-    if(reserved_header_length < size) {
+    header_size_required_ = reserve(data_length,flags);
+    if(reserved_header_length < header_size_required_) {
         throw std::length_error("WebSocket header is larger than what was allocated");
     }
-    frame_offset_ = reserved_header_length - size;
+    frame_offset_ = reserved_header_length - header_size_required_;
     //debugstd::cout << "frame offset " << frame_offset_ << std::endl;
     cit_t frame = buffer_.cbegin() + frame_offset_;
     flags2frame(flags);
@@ -224,6 +282,7 @@ void Frame<T>::length2frame(uint64_t length){
 
 template<class T>
 uint64_t Frame<T>::consume() {
+    if(!headerConsume()) return 0;
     it_t mask = buffer_.begin() + mask_offset_;
     it_t data = buffer_.begin() + data_offset_;
 
@@ -235,6 +294,7 @@ uint64_t Frame<T>::consume() {
     //debugstd::cout << "consuming " << consume << std::endl;
     if( buffer_.size() < data_length_ + data_offset_ ){
         //buffer doesn't contain all the data so we will read as much as we can
+        //debugstd::cout << buffer_.size() << " " << data_offset_ << " " << data_consumed_ << std::endl;
         consume = static_cast<int64_t>(buffer_.size() - data_offset_ - data_consumed_);
         end = buffer_.cend();
         //debugstd::cout << "actually, buffer filled, consuming " << consume << std::endl;
@@ -299,35 +359,6 @@ void Frame<T>::flags2frame(uint16_t flags) {
 
 }
 
-template<class T>
-void Frame<T>::frame2length() {
-    cit_t frame = buffer_.cbegin() + frame_offset_;
-    data_length_ = frame[1] & 0x7F;
-    if(data_length_ <= 125) {
-        data_length_byte_size_ = 1;
-    } else if(data_length_ == 126) {
-        data_length_ = (frame[2] << 8) | (frame[3] << 0);
-        //it's not 2 because the '126' is a 1 byte flag that is part of the size
-        //the size length occupies is 2 bytes, but the size length occupies in the
-        //frame is 3 bytes
-        data_length_byte_size_ = 3;
-    } else if (data_length_ == 127) {
-        data_length_ = (static_cast<uint64_t>(frame[2]) << 56) 
-                     | (static_cast<uint64_t>(frame[3]) << 48)
-                     | (static_cast<uint64_t>(frame[4]) << 40)
-                     | (static_cast<uint64_t>(frame[5]) << 32)
-                     | (static_cast<uint64_t>(frame[6]) << 24)
-                     | (static_cast<uint64_t>(frame[7]) << 16)
-                     | (static_cast<uint64_t>(frame[8]) <<  8) 
-                     | (static_cast<uint64_t>(frame[9]) <<  0);
-        //it's not 8 because the '127' is a 1 byte flag that is part of the size
-        //the size length occupies is 8 bytes, but the size length occupies in the
-        //frame is 9 bytes
-        data_length_byte_size_ = 9;
-    }
 }
-
-}
-
 
 #endif

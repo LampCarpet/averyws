@@ -84,13 +84,8 @@ int main(){
 
     auto socket_it = socket_buffer.begin();
 
-    ChunkVector<unsigned char,9> buffer;
-    auto chunk = buffer.new_chunk();
-    for(auto it = chunk; it != chunk + buffer.chunk_size() && socket_it != socket_buffer.end(); ++it,++socket_it) {
-        *it = *socket_it;
-    }
-
-    Frame<ChunkVector<unsigned char,9> > frame2(buffer);
+    ChunkVector<unsigned char,11> buffer;
+    Frame<ChunkVector<unsigned char,11> > frame2(buffer);
 
     while(socket_it != socket_buffer.end()) {
         //request memory
@@ -105,7 +100,9 @@ int main(){
     }
 
     //we may have over-allocated a little so we close the chunk where the data ends
-    buffer.close_last_chunk(( socket_buffer.size() ) % buffer.chunk_size());
+    if(( socket_buffer.size() ) % buffer.chunk_size() != 0) {
+        buffer.close_last_chunk(( socket_buffer.size() ) % buffer.chunk_size());
+    }
 
     std::cout << "lengths: " << frame.length() << " " << frame2.length() << std::endl;
     for(auto it = frame2.data(); it < frame2.data() + frame2.length(); it = buffer.end_of_chunk(it)) {
