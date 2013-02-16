@@ -1,4 +1,4 @@
-#include <utilities_random.h>
+#include <utilities_random.hpp>
 
 #include <vector>
 #include <cstdint>
