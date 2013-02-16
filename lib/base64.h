@@ -29,7 +29,7 @@ static const char reverse_table[128] = {
    }
 
    // Use = signs so the end is properly padded.
-   string retval((binlen + 2) * 4/3, '=');
+   string retval((binlen + 1) * 4/3, '=');
    ::std::size_t outpos = 0;
    int bits_collected = 0;
    unsigned int accumulator = 0;
@@ -64,7 +64,7 @@ static const char reverse_table[128] = {
 
    const ::std::size_t binlen = bindata.size();
    // Use = signs so the end is properly padded.
-   string retval((((binlen + 2) / 3) * 4), '=');
+   string retval((((binlen + 1) / 3) * 4), '=');
    ::std::size_t outpos = 0;
    int bits_collected = 0;
    unsigned int accumulator = 0;
