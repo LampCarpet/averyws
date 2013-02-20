@@ -292,11 +292,15 @@ using namespace Utilities;
   }
 
 void Session::write(std::shared_ptr<uint8_t> data, uint64_t size) {
-    uint64_t header_size = Utilities::Websocket::reserve(size,0x8000);
-    std::shared_ptr<uint8_t> header(new uint8_t[header_size], std::default_delete<uint8_t[]>());
+    auto deleter = [](uint8_t *ptr){
+        std::cout << "deleting header" << std::endl;
+        delete[] ptr;
+    };
+    uint64_t header_size = Utilities::Websocket::reserve(size,0x8100);
+    std::shared_ptr<uint8_t> header(new uint8_t[header_size], deleter);
 
 
-    Utilities::Websocket::makeHeader(header.get(),header_size,header_size,0x8000);
+    Utilities::Websocket::makeHeader(header.get(),header_size,header_size,0x8100);
 
     //double braces until the compiler supports single brackets:
     //http://gcc.gnu.org/bugzilla/show_bug.cgi?id=25137
@@ -312,13 +316,14 @@ void Session::write(std::shared_ptr<uint8_t> data, uint64_t size) {
     std::cout << std::endl;
     std::cout << "sending:" << std::string(reinterpret_cast<char *>(data.get()),size) << " " << size << std::endl;
 
+    std::cout << "header use count: " << header.use_count() << " " << data.use_count() << std::endl;
+
     async_write(socket_
           , buffers 
-          , strand_.wrap([&this_shared,&header,&data](const system::error_code& error,size_t bytes_transferred){
-              std::cout << "here";
-                header.reset();
-                data.reset();
+          , strand_.wrap([&,data,header](const system::error_code& error,size_t bytes_transferred){
+                std::cout << "async header use count: " << header.use_count() << " " << data.use_count() << std::endl;
                 if (error) {
+                  std::cout << "write error" << std::endl;
                   this_shared->session_manager_.remove(this_shared);
                 }
           }));

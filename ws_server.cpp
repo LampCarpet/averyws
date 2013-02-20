@@ -64,7 +64,8 @@ void Server::start() {
            dealer_.run([&](std::shared_ptr<uint8_t> data, uint64_t size) {
            for(auto session : session_manager_.unauthed()) {
                std::cout << "unauthed output" << std::endl;
-               acceptor_.get_io_service().post(io_strand_.wrap(std::bind(&Session::write,session,data,size)));
+               //acceptor_.get_io_service().post(io_strand_.wrap(std::bind(&Session::write,session,data,size)));
+               acceptor_.get_io_service().post(std::bind(&Session::write,session,data,size));
                std::cout << "'" << std::string(reinterpret_cast<char *>(data.get()),size) << "'" <<std::endl;    
            }
            });
