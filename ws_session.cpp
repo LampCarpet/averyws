@@ -304,12 +304,18 @@ void Session::write(std::shared_ptr<uint8_t> data, uint64_t size) {
     std::array<const_buffer,2> buffers = {{
         buffer(header.get(),header_size),
         buffer(data.get(),size) }};
-    
+   
     auto this_shared = shared_from_this();
+             
+    std::cout << "sending:" << std::string(reinterpret_cast<char *>(header.get()),header_size) << std::endl;
+    for(uint64_t i = 0; i < header_size; ++i) std::cout << std::hex << static_cast<unsigned int>(header.get()[i]) << " ";
+    std::cout << std::endl;
+    std::cout << "sending:" << std::string(reinterpret_cast<char *>(data.get()),size) << " " << size << std::endl;
 
     async_write(socket_
           , buffers 
           , strand_.wrap([&this_shared,&header,&data](const system::error_code& error,size_t bytes_transferred){
+              std::cout << "here";
                 header.reset();
                 data.reset();
                 if (error) {

@@ -23,7 +23,7 @@ int main(int argc, char* argv[]) {
 
   try {
     io_service service;
-    Zmq::Dealer zmq_dealer(zmq_address_in, zmq_address_out);
+    Zmq::Dealer zmq_dealer(zmq_address_out, zmq_address_in);
     auto server = Server(service,num_threads,port,zmq_dealer);
     server.start();
     
