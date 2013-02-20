@@ -1,5 +1,6 @@
 #include <iostream>
 #include <ws_server.hpp>
+#include <zmq_dealer.hpp>
 #include <boost/asio.hpp>
 #include <memory>
 #include <thread>
@@ -10,18 +11,20 @@ int main(int argc, char* argv[]) {
   using namespace boost;
   using namespace boost::asio;
 
-  if (argc != 3) {
-    std::cerr << "Usage: ws_server <threads> <port>\n";
+  if (argc != 5) {
+    std::cerr << "Usage: ws_server <threads> <port websocket> <port incoming zmq> <port incoming zmq>\n";
     return 1;
   }
 
   int num_threads = std::atoi(argv[1]);
   int port = std::atoi(argv[2]);
+  std::string zmq_address_in = "tcp://localhost:" + std::string(argv[3]); 
+  std::string zmq_address_out = "tcp://localhost:" + std::string(argv[4]); 
 
   try {
-
     io_service service;
-    auto server = Server(service,num_threads, "0.0.0.0",port);
+    Zmq::Dealer zmq_dealer(zmq_address_in, zmq_address_out);
+    auto server = Server(service,num_threads,port,zmq_dealer);
     server.start();
     
     std::cout << "main:out of scope" << std::endl;

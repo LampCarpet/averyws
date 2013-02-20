@@ -18,7 +18,7 @@ uint64_t Websocket::reserve(const uint64_t length , const uint16_t flags) {
     return base_required;
 }
 
-void Websocket::make(uint8_t *data, const uint64_t data_size, const uint64_t length,const uint16_t flags) {
+void Websocket::makeHeader(uint8_t *data, const uint64_t data_size, const uint64_t length,const uint16_t flags) {
     if(Websocket::reserve(length , flags) > data_size) {
         //todo throw exception
     }
@@ -34,7 +34,7 @@ void Websocket::make(uint8_t *data, const uint64_t data_size, const uint64_t len
 }
 
 void Websocket::generateMask(uint8_t *data) {
-        std::vector<unsigned uint8_t> random_bytes = Utilities::Random::bytes_safe(4);
+        std::vector<uint8_t> random_bytes = Utilities::Random::bytes_safe(4);
         //std::cout << "mask: " << random_bytes[0] << " " << random_bytes[1] << " " << random_bytes[2] << " " << random_bytes[3] << std::endl;
         data[0] = static_cast<uint8_t>(random_bytes[0]);
         data[1] = static_cast<uint8_t>(random_bytes[1]);

@@ -13,8 +13,8 @@ namespace Utilities {
 
 
 typedef std::vector<uint8_t> chunk_t;
-typedef std::shared_ptr<chunk_t> chunk_sp;
-typedef std::vector<chunk_sp> vector_chunks_t;
+typedef std::unique_ptr<chunk_t> chunk_up;
+typedef std::vector<chunk_up> vector_chunks_t;
 
 class ChunkVector {
     public:
@@ -34,7 +34,6 @@ class ChunkVector {
         const_iterator chunk_cend() const;
         iterator chunk_begin();
         iterator chunk_end();
-        chunk_sp &chunk_back();
         
     private:
         vector_chunks_t chunk_vector_;

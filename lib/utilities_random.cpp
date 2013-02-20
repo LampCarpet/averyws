@@ -11,9 +11,9 @@
 namespace Utilities {
 
     //guaranteed to be unpredictably random. Throws an exception if unsafe
-    std::vector<unsigned uint8_t> Random::bytes_safe(uint32_t size)
+    std::vector<uint8_t> Random::bytes_safe(uint32_t size)
     {
-        std::vector<unsigned uint8_t> v(size);
+        std::vector<uint8_t> v(size);
         if(RAND_bytes(&v[0],size) != 1) {
             throw std::runtime_error("random bytes too predictable");
         }
@@ -21,9 +21,9 @@ namespace Utilities {
     }
    
     //try to be safe but if it isn't, generate a pseudo-random number of bytes
-    std::vector<unsigned uint8_t> Random::bytes_safe_attempt(uint32_t size){
+    std::vector<uint8_t> Random::bytes_safe_attempt(uint32_t size){
         //TODO
-        std::vector<unsigned uint8_t> v(size);
+        std::vector<uint8_t> v(size);
         if(RAND_bytes(&v[0],size) != 1) {
             return v;
         }
@@ -31,9 +31,9 @@ namespace Utilities {
     }
     
     //generate pseudo-random bytes
-    std::vector<unsigned uint8_t> Random::bytes_pseudo(uint32_t size)   {
+    std::vector<uint8_t> Random::bytes_pseudo(uint32_t size)   {
         //TODO
-        std::vector<unsigned uint8_t> v(size);
+        std::vector<uint8_t> v(size);
         return v;
     }
 }

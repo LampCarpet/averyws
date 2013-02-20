@@ -23,18 +23,8 @@
 #include <openssl/sha.h>
 #include <base64.hpp>
 
-#include <zmq.hpp>
+#include <ws_dealer.hpp>
 
-
-namespace {
-//for zmq no copy
-using namespace Utilities;
-void freeSharedChunk(void* data,void* hint) {
-    reinterpret_cast<ChunkVector_sp *>(hint)->reset();
-
-}
-
-}
 
 namespace Websocket {
 
@@ -44,14 +34,16 @@ using namespace Utilities;
 
   Session::Session(io_service& io_service
           , SessionManager &session_manager
-          ,   zmq::socket_t &socket_pub
+          , Dealer &dealer
+          , strand &io_strand
           )
   :  socket_(io_service)
    , strand_(io_service)
    , io_service_(io_service)
    , session_manager_(session_manager)
-   , socket_pub_(socket_pub)
-   , authenticated_(false){
+   , authenticated_(false)
+   , dealer_(dealer)
+   , io_strand_(io_strand){
   }
 
   ip::tcp::socket& Session::socket() {
@@ -251,7 +243,9 @@ using namespace Utilities;
               new_request_ = false;
           }
           Utilities::Websocket::applyMask(&buffer_->at(payload_size_-temp_payload_size_),temp_payload_size_,mask_,0);
+          
           std::cout << std::string(reinterpret_cast<char*>(&buffer_->at(payload_size_-temp_payload_size_)),temp_payload_size_) << std::endl;
+          io_service_.post(io_strand_.wrap(std::bind(&Session::request, shared_from_this(),buffer_)));
           read_header();
       } else {
           payload_read_ = buffer_->size();
@@ -285,27 +279,39 @@ using namespace Utilities;
   }
   
   void Session::request(std::shared_ptr<Utilities::ChunkVector > request) {
-      for(auto chunk = request->chunk_cbegin(); chunk != request->chunk_cend(); ++chunk) {
-          chunk_sp *shared = new chunk_sp(*chunk);
-          zmq::message_t zmq_request ( &(*chunk)->at(0)
-                  ,(*chunk)->size()
-                  ,freeSharedChunk
-                  ,shared);
-          if(chunk+1 == request->chunk_cend()) {
-              socket_pub_.send(zmq_request);
+      dealer_.send_open();
+      for(auto chunk = request->chunk_begin(); chunk != request->chunk_cend(); ++chunk) {
+          if(chunk+1 == request->chunk_end()) {
+              dealer_.send_last(std::move(*chunk));
           } else {
-              socket_pub_.send(zmq_request,ZMQ_SNDMORE);
+              dealer_.send_more(std::move(*chunk));
           }
 
       }
+      dealer_.send_close();
   }
 
-void Session::write(std::shared_ptr<zmq::message_t > message) {
-    std::shared_ptr<uint8_t> header(new uint8_t[Utilities::Websocket::reserve(message->size(),0x8080)], std::default_delete<uint8_t[]>());
+void Session::write(std::shared_ptr<uint8_t> data, uint64_t size) {
+    uint64_t header_size = Utilities::Websocket::reserve(size,0x8000);
+    std::shared_ptr<uint8_t> header(new uint8_t[header_size], std::default_delete<uint8_t[]>());
+
+
+    Utilities::Websocket::makeHeader(header.get(),header_size,header_size,0x8000);
+
+    //double braces until the compiler supports single brackets:
+    //http://gcc.gnu.org/bugzilla/show_bug.cgi?id=25137
+    
+    std::array<const_buffer,2> buffers = {{
+        buffer(header.get(),header_size),
+        buffer(data.get(),size) }};
+    
     auto this_shared = shared_from_this();
+
     async_write(socket_
-          , buffer(message->data(), message->size())
-          , strand_.wrap([&this_shared](const system::error_code& error,size_t bytes_transferred){
+          , buffers 
+          , strand_.wrap([&this_shared,&header,&data](const system::error_code& error,size_t bytes_transferred){
+                header.reset();
+                data.reset();
                 if (error) {
                   this_shared->session_manager_.remove(this_shared);
                 }

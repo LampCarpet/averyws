@@ -8,11 +8,11 @@
 #include <utilities_chunk_vector.hpp>
 #include <system_error>
 #include <memory>
-#include <zmq.hpp>
 
 namespace Websocket {
 
 class SessionManager;
+class Dealer;
 
 using namespace boost;
 using namespace boost::asio;
@@ -23,7 +23,8 @@ class Session : public std::enable_shared_from_this<Session> {
 public:
   Session(io_service& io_service
         , SessionManager& session_manager
-        , zmq::socket_t& socket_pub
+        , Dealer &dealer
+        , strand &io_strand
         );
 
   ip::tcp::socket& socket();
@@ -38,7 +39,7 @@ public:
   void handle_control_read(const system::error_code& error);
 
   void request(ChunkVector_sp request);
-  void write(std::shared_ptr<zmq::message_t > message);
+  void write(std::shared_ptr<uint8_t> data, uint64_t size);
 
   bool authenticated() const {return authenticated_;}
   const std::string & sid() const {return sid_;}
@@ -66,8 +67,10 @@ private:
   uint8_t* temp_mask_;
   std::shared_ptr<std::array<uint8_t,14> > temp_header_buffer_;
   std::string sid_;
-  zmq::socket_t& socket_pub_;
   bool authenticated_;
+
+  Dealer &dealer_;
+  strand &io_strand_;
 };
 
 }

@@ -14,7 +14,7 @@ uint8_t& ChunkVector::last_chunk() {
 uint8_t &ChunkVector::new_chunk() {
     if(!open_) throw std::logic_error("ChunkVector closed but new chunk was requested."); 
     
-    chunk_vector_.push_back(std::make_shared<chunk_t >(chunk_size_));
+    chunk_vector_.push_back(chunk_up(new chunk_t(chunk_size_)));
     return last_chunk();
 }
 
@@ -52,7 +52,4 @@ vector_chunks_t::iterator ChunkVector::chunk_end(){
     return chunk_vector_.end();
 }
 
-chunk_sp& ChunkVector::chunk_back(){
-    return chunk_vector_.back();
-}
 }
