@@ -36,6 +36,7 @@ public:
   void start();
 
   void handle_first_handshake(const system::error_code& error, size_t bytes_transferred);
+  void read_first_header(const system::error_code& error, size_t bytes_transferred);
   void read_header();
   void handle_read_header_1(const system::error_code& error);
   void handle_read_header_2(const system::error_code& error);
@@ -48,6 +49,7 @@ public:
   bool authenticated() const {return authenticated_;}
   const std::string & sid() const {return sid_;}
   ~Session(){ std::cout << "session destroyed" << std::endl;}
+  
 
 private:
   ip::tcp::socket socket_;
