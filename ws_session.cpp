@@ -150,7 +150,7 @@ using namespace Utilities;
     if(temp_payload_size_ <= 125) {
         read = 0;
     } else if(temp_payload_size_ == 126) {
-        read = 1;
+        read = 2;
     } else if (temp_payload_size_ == 127) {
         read = 8;
     }
@@ -227,64 +227,60 @@ using namespace Utilities;
     mask_ = temp_mask_;
     payload_size_ += temp_payload_size_;
 
-
-    uint64_t read = payload_size_ - payload_read_;
-    if(payload_size_ > buffer_->size()) {
-        buffer_->new_chunk();
-    }
-    
-    if(read > buffer_->size()) {
-        read = buffer_->size() - payload_read_;
-    }
-
-    async_read(socket_
-        , buffer(&buffer_->at(payload_read_),buffer_->size() -payload_read_)
-        , transfer_exactly(read)
-        , strand_.wrap(std::bind(&Session::handle_read, shared_from_this(), std::placeholders::_1)));
+    read_chunk(0,system::error_code());
     } else {
       session_manager_.remove(shared_from_this());
     }
   }
 
-
-  void Session::handle_read(const system::error_code& error) {
-    std::cout << "in handle_read" << std::endl;
-    if (!error) {
-      //typical scatther-gather logic
-      if(buffer_->size() >= payload_size_) {
-          payload_read_ = payload_size_;
-          //everything has been read in this frame.
-          if(header_buffer_->at(0) & 0x80) {
-              //FIN is set to true so we close the buffer
-              buffer_->close_last_chunk(payload_size_ % (buffer_->chunk_size()+1) );
-              new_request_ = true;
-          } else {
-              new_request_ = false;
-          }
-          Utilities::Websocket::applyMask(&buffer_->at(payload_size_-temp_payload_size_),temp_payload_size_,mask_,0);
-          
-          std::cout << std::string(reinterpret_cast<char*>(&buffer_->at(payload_size_-temp_payload_size_)),temp_payload_size_) << std::endl;
-          io_service_.post(io_strand_.wrap(std::bind(&Session::request, shared_from_this(),buffer_)));
-          read_header();
-      } else {
-          payload_read_ = buffer_->size();
-          if(payload_read_ % buffer_->chunk_size() == 0) {
-             buffer_->new_chunk();
-          }
+  void Session::read_chunk(uint64_t previous_read, const system::error_code& error) {
+      if (!error) {
+          payload_read_ += previous_read;
           uint64_t read = payload_size_ - payload_read_;
-          if(read > buffer_->size()) {
-              read = buffer_->size() - payload_read_;
+
+          std::cout << "payload size: " << payload_size_ << " payload read: " << payload_read_ << " payload being read: " << read << " total buffer size " << buffer_->size() << std::endl;
+
+          if(previous_read != 0) {
+              Utilities::Websocket::applyMask(&buffer_->at(payload_read_ - previous_read), previous_read,mask_,(payload_read_ - previous_read) % 4 );
           }
-          async_read(socket_
-              , buffer(&buffer_->at(payload_read_),buffer_->size() -payload_read_)
-              , transfer_exactly(read)
-              , strand_.wrap(std::bind(&Session::handle_read, shared_from_this(), std::placeholders::_1)));
+
+          if(read == 0) {
+              //everything has been read in this frame.
+              if(header_buffer_->at(0) & 0x80) {
+                  //FIN is set to true so we close the buffer
+                  buffer_->close_last_chunk( ((payload_size_ - 1)  % buffer_->chunk_size()) + 1 );
+                  new_request_ = true;
+              } else {
+                  new_request_ = false;
+              }
+
+              if(new_request_ == true) {
+                  io_service_.post(io_strand_.wrap(std::bind(&Session::request, shared_from_this(),buffer_)));
+              }
+
+              read_header();
+          } else {
+
+              if(payload_size_ > buffer_->size()) {
+                  buffer_->new_chunk();
+              }
+
+              if(payload_size_ > buffer_->size()) {
+                  read = buffer_->size() - payload_read_;
+              }
+
+
+              async_read(socket_
+                      , buffer(&buffer_->at(payload_read_),buffer_->size() -payload_read_)
+                      , transfer_exactly(read)
+                      , strand_.wrap(std::bind(&Session::read_chunk, shared_from_this(), read,  std::placeholders::_1)));
+          }
+      } else {
+          session_manager_.remove(shared_from_this());
       }
-    } else {
-      session_manager_.remove(shared_from_this());
-    }
   }
-  
+
+
   void Session::handle_control_read(const system::error_code& error) {
     if (!error) {
         Utilities::Websocket::applyMask(&control_buffer_->at(0),temp_payload_size_,temp_mask_,0);
@@ -300,6 +296,8 @@ using namespace Utilities;
   void Session::request(std::shared_ptr<Utilities::ChunkVector > request) {
       dealer_.send_open();
       for(auto chunk = request->chunk_begin(); chunk != request->chunk_cend(); ++chunk) {
+          std::cout << "processing chunk" << std::endl;
+          std::cout << std::string(reinterpret_cast<char*>(&(*chunk)->at(0)),(*chunk)->size()) << std::endl;
           if(chunk+1 == request->chunk_end()) {
               dealer_.send_last(std::move(*chunk));
           } else {
@@ -311,15 +309,11 @@ using namespace Utilities;
   }
 
 void Session::write(std::shared_ptr<uint8_t> data, uint64_t size) {
-    auto deleter = [](uint8_t *ptr){
-        std::cout << "deleting header" << std::endl;
-        delete[] ptr;
-    };
     uint64_t header_size = Utilities::Websocket::reserve(size,0x8100);
-    std::shared_ptr<uint8_t> header(new uint8_t[header_size], deleter);
+    std::shared_ptr<uint8_t> header(new uint8_t[header_size]);
 
 
-    Utilities::Websocket::makeHeader(header.get(),header_size,header_size,0x8100);
+    Utilities::Websocket::makeHeader(header.get(),header_size,size,0x8100);
 
     //double braces until the compiler supports single braces:
     //http://gcc.gnu.org/bugzilla/show_bug.cgi?id=25137

@@ -17,6 +17,7 @@ namespace {
 //for zmq no copy
 using namespace Utilities;
 void freeUniqueChunk(void* data,void* hint) {
+    std::cout << "freeing data" << std::endl;
     delete reinterpret_cast<chunk_t *>(hint);
 
 }
@@ -60,7 +61,7 @@ void Dealer::send_close() {
 void Dealer::send_last(chunk_up &&chunk) {
       //zmq is now in charge of managing the memory
       chunk_t *ptr = chunk.release();
-      std::cout << "zmq sending " << std::string(reinterpret_cast<char *>(&(ptr->at(0))),ptr->size()) << std::endl;
+      std::cout << "zmq sending last" << std::string(reinterpret_cast<char *>(&(ptr->at(0))),ptr->size()) << std::endl;
       zmq::message_t zmq_request ( &(ptr->at(0))
               ,ptr->size()
               ,freeUniqueChunk
@@ -71,7 +72,8 @@ void Dealer::send_last(chunk_up &&chunk) {
 void Dealer::send_more(chunk_up &&chunk) {
       //zmq is now in charge of managing the memory
       chunk_t *ptr = chunk.release();
-      zmq::message_t zmq_request ( &ptr[0]
+      std::cout << "zmq sending more" << std::string(reinterpret_cast<char *>(&(ptr->at(0))),ptr->size()) << std::endl;
+      zmq::message_t zmq_request ( &(ptr->at(0))
               ,ptr->size()
               ,freeUniqueChunk
               ,ptr);

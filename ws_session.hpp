@@ -37,6 +37,7 @@ public:
 
   void handle_first_handshake(const system::error_code& error, size_t bytes_transferred);
   void read_first_header(const system::error_code& error, size_t bytes_transferred);
+  void read_chunk(uint64_t previous_read, const system::error_code& error);
   void read_header();
   void handle_read_header_1(const system::error_code& error);
   void handle_read_header_2(const system::error_code& error);
