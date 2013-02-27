@@ -45,7 +45,7 @@ public:
   void handle_control_read(const system::error_code& error);
 
   void request(ChunkVector_sp request);
-  void write(std::shared_ptr<uint8_t> data, uint64_t size);
+  void write(std::shared_ptr<uint8_t> data, uint64_t size, bool is_binary);
 
   bool authenticated() const {return authenticated_;}
   const std::string & sid() const {return sid_;}

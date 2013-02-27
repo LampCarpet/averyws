@@ -15,7 +15,7 @@ namespace Utilities {
         public:
 
         template<class T>
-        static std::function<void(T *ptr)> deleter(const std::string &context) {
+        static std::function<void(T *ptr)> deleter(const std::string context) {
             return [&context](T *ptr){
                 std::cout << context << std::endl;
                 delete ptr;
@@ -23,7 +23,7 @@ namespace Utilities {
         }
         
         template<class T>
-        static std::function<void(T *ptr)> deleter_arr(const std::string &context) {
+        static std::function<void(T *ptr)> deleter_arr(const std::string context) {
             return [&context](T *ptr){
                 std::cout << context << std::endl;
                 delete[] ptr;
@@ -31,5 +31,6 @@ namespace Utilities {
         }
    
     };
+
 }
 #endif

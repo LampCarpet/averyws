@@ -118,19 +118,19 @@ using namespace Utilities;
       auto this_shared = shared_from_this();
       async_write(socket_
               , buffer(&buffer_->at(0), sizeof(response)-1+b64.size()+sizeof(response_end)-1)
-              , strand_.wrap([this_shared](const system::error_code& error, size_t bytes_transferred) {
+              , strand_.wrap([this,this_shared](const system::error_code& error, size_t bytes_transferred) {
                   if (error) { 
                     std::cout << "error" << std::endl;
-                    this_shared->session_manager_.remove(this_shared); 
+                    session_manager_.remove(this_shared); 
                     return;
                   }
-                  this_shared->read_header();
+                  read_header();
               }
               ));
   }
 
   void Session::read_header() {
-    std::cout << "in read header" << std::endl;
+    //std::cout << "in read header" << std::endl;
     temp_header_buffer_ = std::make_shared<std::array<uint8_t,14> >();
     async_read(socket_ ,
             buffer(&temp_header_buffer_->at(0), temp_header_buffer_->size()) ,
@@ -139,8 +139,8 @@ using namespace Utilities;
   }
 
   void Session::handle_read_header_1(const system::error_code& error) {
-    std::cout << "in read header 1" << std::endl;
-    std::cout << error << std::endl;
+    //std::cout << "in read header 1" << std::endl;
+    //std::cout << error << std::endl;
     if (!error) {
     temp_payload_size_ = temp_header_buffer_->at(1) & 0x7F;
     temp_mask_ = 0;
@@ -174,7 +174,7 @@ using namespace Utilities;
   }
 
   void Session::handle_read_header_2(const system::error_code& error) {
-    std::cout << "in read header 2" << std::endl;
+    //std::cout << "in read header 2" << std::endl;
     if (!error) {
     if(temp_payload_size_ == 126) {
         temp_payload_size_ = (static_cast<uint64_t>(temp_header_buffer_->at(2)) << 8) 
@@ -189,12 +189,14 @@ using namespace Utilities;
                            | (static_cast<uint64_t>(temp_header_buffer_->at(8)) <<  8) 
                            | (static_cast<uint64_t>(temp_header_buffer_->at(9)) <<  0);
     }
-    
+
+    std::cout << "size: " << temp_payload_size_ << std::endl;
+
     if(   (temp_header_buffer_->at(0) & 0x08) == 0x08
        || (temp_header_buffer_->at(0) & 0x09) == 0x09 
        || (temp_header_buffer_->at(0) & 0x0A) == 0x0A ) {
 
-        std::cout << "control header";
+        std::cout << "control header ";
         Utilities::Print::hex(&temp_header_buffer_->at(0),2);
         std::cout << std::endl;
 
@@ -213,11 +215,10 @@ using namespace Utilities;
     
     if(temp_payload_size_ == 0) {
         std::cout << "no payload" << std::endl;
-        read_header();
-        return;
     }
 
     if(new_request_) {
+        std::cout << "new request" << std::endl;
         payload_read_ = 0;
         payload_size_ = 0;
         buffer_ = ChunkVector_sp( new ChunkVector());
@@ -238,7 +239,6 @@ using namespace Utilities;
           payload_read_ += previous_read;
           uint64_t read = payload_size_ - payload_read_;
 
-          std::cout << "payload size: " << payload_size_ << " payload read: " << payload_read_ << " payload being read: " << read << " total buffer size " << buffer_->size() << std::endl;
 
           if(previous_read != 0) {
               Utilities::Websocket::applyMask(&buffer_->at(payload_read_ - previous_read), previous_read,mask_,(payload_read_ - previous_read) % 4 );
@@ -248,20 +248,23 @@ using namespace Utilities;
               //everything has been read in this frame.
               if(header_buffer_->at(0) & 0x80) {
                   //FIN is set to true so we close the buffer
-                  buffer_->close_last_chunk( ((payload_size_ - 1)  % buffer_->chunk_size()) + 1 );
+                  if(temp_payload_size_ == 0 && previous_read == 0) {
+                      buffer_->close_last_chunk( 0 );
+                  } else {
+                      buffer_->close_last_chunk( ( ( payload_size_ - 1 ) % buffer_->chunk_size() ) + 1 );
+                  }
                   new_request_ = true;
-              } else {
-                  new_request_ = false;
-              }
-
-              if(new_request_ == true) {
+                  std::cout << "payload size: " << payload_size_ << " payload read: " << payload_read_ << " payload being read: " << read << " total buffer size " << buffer_->size() << std::endl;
                   io_service_.post(io_strand_.wrap(std::bind(&Session::request, shared_from_this(),buffer_)));
+              } else {
+                  std::cout << "payload size: " << payload_size_ << " payload read: " << payload_read_ << " payload being read: " << read << " total buffer size " << buffer_->size() << std::endl;
+                  new_request_ = false;
               }
 
               read_header();
           } else {
-
-              if(payload_size_ > buffer_->size()) {
+             
+              if(payload_size_ >= buffer_->size()) {
                   buffer_->new_chunk();
               }
 
@@ -269,9 +272,9 @@ using namespace Utilities;
                   read = buffer_->size() - payload_read_;
               }
 
-
+              std::cout << "payload size: " << payload_size_ << " payload read: " << payload_read_ << " payload being read: " << read << " total buffer size " << buffer_->size() << std::endl;
               async_read(socket_
-                      , buffer(&buffer_->at(payload_read_),buffer_->size() -payload_read_)
+                      , buffer(&buffer_->at(payload_read_),read)
                       , transfer_exactly(read)
                       , strand_.wrap(std::bind(&Session::read_chunk, shared_from_this(), read,  std::placeholders::_1)));
           }
@@ -284,60 +287,109 @@ using namespace Utilities;
   void Session::handle_control_read(const system::error_code& error) {
     if (!error) {
         Utilities::Websocket::applyMask(&control_buffer_->at(0),temp_payload_size_,temp_mask_,0);
+        Utilities::Print::hex(&control_buffer_->at(0),temp_payload_size_); std::cout << std::endl;
         std::cout << "in control handler" << std::endl;
-        std::cout << std::string(reinterpret_cast<char*>(&control_buffer_->at(0)),temp_payload_size_) << std::endl;
-        //TODO do control logic here
+
+        std::array<const_buffer,2> buffers = {{
+            buffer(&temp_header_buffer_->at(0),2),
+            buffer(&control_buffer_->at(0),temp_payload_size_) }};
+    
+    auto this_shared = shared_from_this();
+    auto data = control_buffer_;
+    auto header = temp_header_buffer_;
+       
+    if(   (temp_header_buffer_->at(0) & 0x08) == 0x08) {
+        temp_header_buffer_->at(1) = temp_header_buffer_->at(1) & 0x7F;
+        async_write(socket_
+              , buffers 
+              , strand_.wrap([this,this_shared,data,header](const system::error_code& error,size_t bytes_transferred){
+                      socket_.cancel();
+                      session_manager_.remove(this_shared);
+                      std::cout << "control kill" << std::endl;
+              }));
+    } else if ( (temp_header_buffer_->at(0) & 0x09) == 0x09 ) {
+        temp_header_buffer_->at(1) = temp_header_buffer_->at(1) & 0x7F;
+        temp_header_buffer_->at(0) = 0x0A;
+        async_write(socket_
+              , buffers 
+              , strand_.wrap([this,this_shared,data,header](const system::error_code& error,size_t bytes_transferred){
+                    if (error) {
+                      std::cout << "write error" << std::endl;
+                      session_manager_.remove(this_shared);
+                    }
+              }));
         read_header();
+    } else if ( (temp_header_buffer_->at(0) & 0x0A) == 0x0A ) {
+        std::cout << "Pong recieved" << std::endl;
+        read_header();
+    } else {
+      session_manager_.remove(shared_from_this());
+    }
+
     } else {
       session_manager_.remove(shared_from_this());
     }
   }
   
   void Session::request(std::shared_ptr<Utilities::ChunkVector > request) {
-      dealer_.send_open();
-      for(auto chunk = request->chunk_begin(); chunk != request->chunk_cend(); ++chunk) {
-          std::cout << "processing chunk" << std::endl;
-          std::cout << std::string(reinterpret_cast<char*>(&(*chunk)->at(0)),(*chunk)->size()) << std::endl;
-          if(chunk+1 == request->chunk_end()) {
-              dealer_.send_last(std::move(*chunk));
-          } else {
-              dealer_.send_more(std::move(*chunk));
-          }
+      dealer_.send_open( (header_buffer_->at(0) & 0x02) == 0x02 );
+      if(request->size() == 0) {
+          chunk_up chunk(new chunk_t());
+          std::cout << "empty request " << std::endl;
+          dealer_.send_last(std::move(chunk));
+      } else {
+          for(auto chunk = request->chunk_begin(); chunk != request->chunk_cend(); ++chunk) {
+              //std::cout << "processing chunk" << std::endl;
+              //std::cout << std::string(reinterpret_cast<char*>(&(*chunk)->at(0)),(*chunk)->size()) << std::endl;
+              if(chunk+1 == request->chunk_end()) {
+                  dealer_.send_last(std::move(*chunk));
+              } else {
+                  dealer_.send_more(std::move(*chunk));
+              }
 
+          }
       }
       dealer_.send_close();
   }
 
-void Session::write(std::shared_ptr<uint8_t> data, uint64_t size) {
-    uint64_t header_size = Utilities::Websocket::reserve(size,0x8100);
+void Session::write(std::shared_ptr<uint8_t> data, uint64_t size,bool is_binary) {
+    uint16_t flags = 0x8000;
+    if(is_binary) {
+        flags |= 0x0200;
+    } else {
+        flags |= 0x0100;
+    } 
+    uint64_t header_size = Utilities::Websocket::reserve(size,flags);
     std::shared_ptr<uint8_t> header(new uint8_t[header_size]);
 
 
-    Utilities::Websocket::makeHeader(header.get(),header_size,size,0x8100);
+    Utilities::Websocket::makeHeader(header.get(),header_size,size,flags);
+
+    std::cout << "write header for size " << size << " "; Print::hex(header.get(),header_size);std::cout << std::endl;
 
     //double braces until the compiler supports single braces:
     //http://gcc.gnu.org/bugzilla/show_bug.cgi?id=25137
-    
+
     std::array<const_buffer,2> buffers = {{
         buffer(header.get(),header_size),
         buffer(data.get(),size) }};
    
     auto this_shared = shared_from_this();
              
-    std::cout << "sending:" << std::string(reinterpret_cast<char *>(header.get()),header_size) << std::endl;
-    for(uint64_t i = 0; i < header_size; ++i) std::cout << std::hex << static_cast<unsigned int>(header.get()[i]) << " ";
-    std::cout << std::endl;
-    std::cout << "sending:" << std::string(reinterpret_cast<char *>(data.get()),size) << " " << size << std::endl;
+    //std::cout << "sending:" << std::string(reinterpret_cast<char *>(header.get()),header_size) << std::endl;
+    //for(uint64_t i = 0; i < header_size; ++i) std::cout << std::hex << static_cast<unsigned int>(header.get()[i]) << " ";
+    //std::cout << std::endl;
+    //std::cout << "sending:" << std::string(reinterpret_cast<char *>(data.get()),size) << " " << size << std::endl;
 
-    std::cout << "header use count: " << header.use_count() << " " << data.use_count() << std::endl;
+    //std::cout << "header use count: " << header.use_count() << " " << data.use_count() << std::endl;
 
     async_write(socket_
           , buffers 
-          , strand_.wrap([&,data,header](const system::error_code& error,size_t bytes_transferred){
-                std::cout << "async header use count: " << header.use_count() << " " << data.use_count() << std::endl;
+          , strand_.wrap([this,this_shared,data,header](const system::error_code& error,size_t bytes_transferred){
+                //std::cout << "async header use count: " << header.use_count() << " " << data.use_count() << std::endl;
                 if (error) {
                   std::cout << "write error" << std::endl;
-                  this_shared->session_manager_.remove(this_shared);
+                  session_manager_.remove(this_shared);
                 }
           }));
 }

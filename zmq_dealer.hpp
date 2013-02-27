@@ -15,7 +15,7 @@ class Dealer final : public Websocket::Dealer {
   public:
     Dealer(const std::string &address_outgoing,const std::string &address_incoming);
     virtual void run(const Websocket::DealerCallback &callback) override;
-    virtual void send_open() override;
+    virtual void send_open(bool is_binary) override;
     virtual void send_close() override;
     virtual void send_last(Utilities::chunk_up &&chunk) override;
     virtual void send_more(Utilities::chunk_up &&chunk) override;

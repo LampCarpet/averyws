@@ -65,10 +65,10 @@ void Server::start() {
     
     threads.insert(std::unique_ptr<std::thread>(new std::thread( 
        [&]() {
-           dealer_.run([&](std::shared_ptr<uint8_t> data, uint64_t size) {
+           dealer_.run([&](std::shared_ptr<uint8_t> data, uint64_t size, bool is_binary) {
            for(auto session : session_manager_.unauthed()) {
-               std::cout << "unauthed output" << std::endl;
-               acceptor_.get_io_service().post(std::bind(&Session::write,session,data,size));
+               //std::cout << "unauthed output" << std::endl;
+               acceptor_.get_io_service().post(std::bind(&Session::write,session,data,size,is_binary));
            }
            });
        })

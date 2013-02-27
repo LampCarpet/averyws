@@ -11,7 +11,9 @@ namespace Utilities {
 
 uint64_t Websocket::reserve(const uint64_t length , const uint16_t flags) {
     uint64_t base_required = 2;
-    if(flags & 0x0080) base_required += 4;
+    
+    uint8_t flags_8bit = (flags & 0x00ff) >> 8;
+    if(flags_8bit & 0x80) base_required += 4;
     if(length > 125) {
         if(length > 65535) {
             base_required += 8;
@@ -74,7 +76,7 @@ uint8_t Websocket::length2header(uint8_t *data, uint64_t length){
     if(length <= 125) {
         data[1] = length | (data[1] & 0x80); 
         return 1;
-    } else if (length < 65535) {
+    } else if (length <= 65535) {
         data[1] = 126 | (data[1] & 0x80);
         data[2] = (length & 0x000000000000ff00) >>  8;
         data[3] = (length & 0x00000000000000ff) >>  0;
