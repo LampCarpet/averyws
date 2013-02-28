@@ -115,6 +115,9 @@ using namespace Utilities;
       std::copy(b64.c_str(),b64.c_str() + b64.size(),&buffer_->at(sizeof(response)-1));
       std::copy(response_end,response_end + (sizeof(response_end)-1),&buffer_->at(sizeof(response)-1+b64.size()));
 
+      //TODO zlib negociation??
+      rsvc_ = 0x00;
+
       auto this_shared = shared_from_this();
       async_write(socket_
               , buffer(&buffer_->at(0), sizeof(response)-1+b64.size()+sizeof(response_end)-1)
@@ -142,6 +145,22 @@ using namespace Utilities;
     //std::cout << "in read header 1" << std::endl;
     //std::cout << error << std::endl;
     if (!error) {
+    if(     ((temp_header_buffer_->at(0) & 0x70) != rsvc_)
+         || ((temp_header_buffer_->at(0) & 0x0F) ) == 0x03
+         || ((temp_header_buffer_->at(0) & 0x0F) ) == 0x04
+         || ((temp_header_buffer_->at(0) & 0x0F) ) == 0x05
+         || ((temp_header_buffer_->at(0) & 0x0F) ) == 0x06
+         || ((temp_header_buffer_->at(0) & 0x0F) ) == 0x07
+         || ((temp_header_buffer_->at(0) & 0x0F) ) == 0x0B
+         || ((temp_header_buffer_->at(0) & 0x0F) ) == 0x0C
+         || ((temp_header_buffer_->at(0) & 0x0F) ) == 0x0D
+         || ((temp_header_buffer_->at(0) & 0x0F) ) == 0x0E
+         || ((temp_header_buffer_->at(0) & 0x0F) ) == 0x0F
+         ) {
+        cancel_socket(1002);
+        return;
+    }
+
     temp_payload_size_ = temp_header_buffer_->at(1) & 0x7F;
     temp_mask_ = 0;
     
@@ -192,9 +211,9 @@ using namespace Utilities;
 
     std::cout << "size: " << temp_payload_size_ << std::endl;
 
-    if(   (temp_header_buffer_->at(0) & 0x08) == 0x08
-       || (temp_header_buffer_->at(0) & 0x09) == 0x09 
-       || (temp_header_buffer_->at(0) & 0x0A) == 0x0A ) {
+    if(   (temp_header_buffer_->at(0) & 0x0F) == 0x08
+       || (temp_header_buffer_->at(0) & 0x0F) == 0x09 
+       || (temp_header_buffer_->at(0) & 0x0F) == 0x0A ) {
 
         std::cout << "control header ";
         Utilities::Print::hex(&temp_header_buffer_->at(0),2);
@@ -298,18 +317,19 @@ using namespace Utilities;
     auto data = control_buffer_;
     auto header = temp_header_buffer_;
        
-    if(   (temp_header_buffer_->at(0) & 0x08) == 0x08) {
+    if(   (temp_header_buffer_->at(0) & 0x0F) == 0x08) {
+        std::cout << "control kill" << std::endl;
         temp_header_buffer_->at(1) = temp_header_buffer_->at(1) & 0x7F;
         async_write(socket_
               , buffers 
               , strand_.wrap([this,this_shared,data,header](const system::error_code& error,size_t bytes_transferred){
                       socket_.cancel();
                       session_manager_.remove(this_shared);
-                      std::cout << "control kill" << std::endl;
               }));
-    } else if ( (temp_header_buffer_->at(0) & 0x09) == 0x09 ) {
-        temp_header_buffer_->at(1) = temp_header_buffer_->at(1) & 0x7F;
-        temp_header_buffer_->at(0) = 0x0A;
+    } else if ( (temp_header_buffer_->at(0) & 0x0F) == 0x09 ) {
+        temp_header_buffer_->at(1) &=  0x7F;
+        temp_header_buffer_->at(0) = ( temp_header_buffer_->at(0) & 0xFA ) | 0x0A;
+        std::cout << "control pong"; Print::hex(&temp_header_buffer_->at(0),2);std::cout <<std::endl;
         async_write(socket_
               , buffers 
               , strand_.wrap([this,this_shared,data,header](const system::error_code& error,size_t bytes_transferred){
@@ -319,8 +339,8 @@ using namespace Utilities;
                     }
               }));
         read_header();
-    } else if ( (temp_header_buffer_->at(0) & 0x0A) == 0x0A ) {
-        std::cout << "Pong recieved" << std::endl;
+    } else if ( (temp_header_buffer_->at(0) & 0x0F) == 0x0A ) {
+        std::cout << "pong recieved" << std::endl;
         read_header();
     } else {
       session_manager_.remove(shared_from_this());
@@ -392,6 +412,25 @@ void Session::write(std::shared_ptr<uint8_t> data, uint64_t size,bool is_binary)
                   session_manager_.remove(this_shared);
                 }
           }));
+}
+
+void Session::cancel_socket(uint16_t code) {
+        temp_header_buffer_ = std::make_shared<std::array<uint8_t,14> >();
+        temp_header_buffer_->at(0) = 0x88 | rsvc_;
+        temp_header_buffer_->at(1) = 0x00;
+        temp_header_buffer_->at(2) = (code & 0xff00) >> 8;
+        temp_header_buffer_->at(3) = (code & 0x00ff) >> 0;
+
+        std::cout << "cancelling with "; Print::hex(&temp_header_buffer_->at(0),4); std::cout << std::endl;
+
+        auto this_shared = shared_from_this();
+
+        async_write(socket_
+              , buffer(&temp_header_buffer_->at(0),4)
+              , strand_.wrap([this,this_shared](const system::error_code& error,size_t bytes_transferred){
+                      socket_.cancel();
+                      session_manager_.remove(this_shared);
+              }));
 }
 
 }

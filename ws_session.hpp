@@ -43,6 +43,7 @@ public:
   void handle_read_header_2(const system::error_code& error);
   void handle_read(const system::error_code& error);
   void handle_control_read(const system::error_code& error);
+  void cancel_socket(uint16_t code);
 
   void request(ChunkVector_sp request);
   void write(std::shared_ptr<uint8_t> data, uint64_t size, bool is_binary);
@@ -61,6 +62,8 @@ private:
   ChunkVector_sp buffer_;
 
   std::shared_ptr<std::array<uint8_t,127> > control_buffer_;
+
+  uint8_t rsvc_;
 
   bool new_request_;
   uint64_t first_handshake_size_;
