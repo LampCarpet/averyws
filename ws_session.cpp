@@ -215,6 +215,11 @@ using namespace Utilities;
        || (temp_header_buffer_->at(0) & 0x0F) == 0x09 
        || (temp_header_buffer_->at(0) & 0x0F) == 0x0A ) {
 
+        if((temp_header_buffer_->at(0) & 0x80) != 0x80) {
+            cancel_socket(1007);
+            return;
+        }
+
         std::cout << "control header ";
         Utilities::Print::hex(&temp_header_buffer_->at(0),2);
         std::cout << std::endl;
@@ -237,10 +242,19 @@ using namespace Utilities;
     }
 
     if(new_request_) {
+        if( (temp_header_buffer_->at(0) & 0x0F) == 0x00) {
+            cancel_socket(1002);
+            return;
+        }
         std::cout << "new request" << std::endl;
         payload_read_ = 0;
         payload_size_ = 0;
         buffer_ = ChunkVector_sp( new ChunkVector());
+    } else {
+        if( (temp_header_buffer_->at(0) & 0x0F ) != 0x00 ) {
+                cancel_socket(1002);
+                return;
+            }
     }
 
     header_buffer_ =  temp_header_buffer_;
@@ -260,23 +274,23 @@ using namespace Utilities;
 
 
           if(previous_read != 0) {
-              Utilities::Websocket::applyMask(&buffer_->at(payload_read_ - previous_read), previous_read,mask_,(payload_read_ - previous_read) % 4 );
+              Utilities::Websocket::applyMask(&buffer_->at(payload_read_ - previous_read), previous_read,mask_,0);
           }
 
           if(read == 0) {
               //everything has been read in this frame.
               if(header_buffer_->at(0) & 0x80) {
                   //FIN is set to true so we close the buffer
-                  if(temp_payload_size_ == 0 && previous_read == 0) {
+                  if(temp_payload_size_ == 0 && payload_read_ == 0 && previous_read == 0) {
                       buffer_->close_last_chunk( 0 );
                   } else {
                       buffer_->close_last_chunk( ( ( payload_size_ - 1 ) % buffer_->chunk_size() ) + 1 );
                   }
                   new_request_ = true;
-                  std::cout << "payload size: " << payload_size_ << " payload read: " << payload_read_ << " payload being read: " << read << " total buffer size " << buffer_->size() << std::endl;
+                  std::cout << "last payload size: " << payload_size_ << " payload read: " << payload_read_ << " payload being read: " << read << " total buffer size " << buffer_->size() << std::endl;
                   io_service_.post(io_strand_.wrap(std::bind(&Session::request, shared_from_this(),buffer_)));
               } else {
-                  std::cout << "payload size: " << payload_size_ << " payload read: " << payload_read_ << " payload being read: " << read << " total buffer size " << buffer_->size() << std::endl;
+                  std::cout << "cont payload size: " << payload_size_ << " payload read: " << payload_read_ << " payload being read: " << read << " total buffer size " << buffer_->size() << std::endl;
                   new_request_ = false;
               }
 
@@ -291,7 +305,7 @@ using namespace Utilities;
                   read = buffer_->size() - payload_read_;
               }
 
-              std::cout << "payload size: " << payload_size_ << " payload read: " << payload_read_ << " payload being read: " << read << " total buffer size " << buffer_->size() << std::endl;
+              std::cout << "loop payload size: " << payload_size_ << " payload read: " << payload_read_ << " payload being read: " << read << " total buffer size " << buffer_->size() << std::endl;
               async_read(socket_
                       , buffer(&buffer_->at(payload_read_),read)
                       , transfer_exactly(read)
