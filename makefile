@@ -1,8 +1,8 @@
 CXX=g++
 CXXFLAGS= -c -Wall -Werror -std=c++11 -pedantic -I. -Ilib -g
 LIBS= -lcrypto -lzmq -lboost_system
-SOURCES=server_main.cpp  ws_server.cpp ws_session.cpp  ws_session_manager.cpp ws_dealer.cpp zmq_dealer.cpp\
-		lib/utilities_chunk_vector.cpp  lib/utilities_random.cpp  lib/utilities_websocket.cpp lib/utilities_debugging.cpp lib/utilities_print.cpp
+SOURCES=server_main.cpp  ws_server.cpp ws_session.cpp  ws_session_manager.cpp ws_dealer.cpp zmq_dealer.cpp ws_control.cpp ws_gather.cpp ws_header.cpp\
+		lib/utilities_chunk_vector.cpp  lib/utilities_random.cpp  lib/utilities_websocket.cpp lib/utilities_debugging.cpp lib/utilities_print.cpp lib/utilities_utf8.cpp
 OBJECTS=$(SOURCES:.cpp=.o)
 EXECUTABLE=server.tsk
 

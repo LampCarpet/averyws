@@ -10,6 +10,9 @@
 #include <array>
 #include <cstdlib>
 #include <utilities_chunk_vector.hpp>
+#include <ws_control.hpp>
+#include <ws_gather.hpp>
+#include <ws_header.hpp>
 #include <system_error>
 #include <memory>
 
@@ -39,8 +42,7 @@ public:
   void read_first_header(const system::error_code& error, size_t bytes_transferred);
   void read_chunk(uint64_t previous_read, const system::error_code& error);
   void read_header();
-  void handle_read_header_1(const system::error_code& error);
-  void handle_read_header_2(const system::error_code& error);
+  void handle_read_header(const system::error_code& error);
   void handle_read(const system::error_code& error);
   void handle_control_read(const system::error_code& error);
   void cancel_socket(uint16_t code);
@@ -57,25 +59,22 @@ private:
   ip::tcp::socket socket_;
   strand strand_;
   io_service& io_service_;
-  SessionManager& session_manager_;
 
   ChunkVector_sp buffer_;
 
-  std::shared_ptr<std::array<uint8_t,127> > control_buffer_;
 
   uint8_t rsvc_;
 
   bool new_request_;
   uint64_t first_handshake_size_;
-  uint64_t payload_read_;
-  uint64_t payload_size_;
-  uint8_t* mask_;
-  std::shared_ptr<std::array<uint8_t,14> > header_buffer_;
-        
-  uint64_t temp_payload_read_;
-  uint64_t temp_payload_size_;
-  uint8_t* temp_mask_;
-  std::shared_ptr<std::array<uint8_t,14> > temp_header_buffer_;
+
+  Header header_;
+  Header temp_header_;
+  Gather gather_;
+  Control control_;
+  
+
+  SessionManager& session_manager_;
   std::string sid_;
   bool authenticated_;
 
