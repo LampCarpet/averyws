@@ -10,8 +10,9 @@
 
 namespace Websocket {
     int Gather::read_chunk(Header &header,ChunkVector &buffer,uint64_t amount_consumed ,bool &out_new_request) {
-
+          
           if(amount_consumed != 0) {
+              std::cout << "applying mask" << std::endl;
               Utilities::Websocket::applyMask(buffer_position_
                       , amount_consumed
                       , &header.mask(),mask_offset_
@@ -19,6 +20,7 @@ namespace Websocket {
                       , utf8_expected_);
 
               if(utf8_expected_ < 0) {
+                  std::cout << "utf8 failure" << std::endl;
                   return 1007;
               }
           total_consumed_ += amount_consumed;
@@ -29,6 +31,7 @@ namespace Websocket {
               out_new_request = header.is_fin();
               if(out_new_request == true) {
                   if(utf8_expected_ != 0) {
+                      std::cout << "utf8 failure, not completed" << std::endl;
                       return 1007;
                   } else if(total_size_ == 0 && total_consumed_ == 0 && amount_consumed == 0) {
                       buffer.close_last_chunk( 0 );
@@ -39,7 +42,12 @@ namespace Websocket {
               next_consume_ = 0;
           } else {
               if(total_size_ >= buffer.size()) {
-                  buffer.new_chunk();
+                  if(buffer.size() == 0) {
+                    buffer.new_chunk();
+                    buffer_position_ = &buffer.at(0);
+                  } else {
+                    buffer.new_chunk();
+                  }
               }
 
               if(total_size_ > buffer.size()) {
@@ -53,8 +61,24 @@ namespace Websocket {
               << " payload last consumed: " << last_consumed_ 
               << " next consume amout: " << next_consume_
               << " total buffer size " << buffer.size() << std::endl;
-          buffer_position_ = &buffer.at(total_consumed_);
+
+          if(buffer.size() != 0) {
+            buffer_position_ = &buffer.at(total_consumed_);
+          }
           return 0;
 
+    }
+      
+    void Gather::reset() {
+       utf8_expected_ = 0;
+       mask_offset_ = 0;
+
+       total_size_ = 0;
+       total_consumed_ = 0;
+      
+       last_consumed_ = 0;
+       next_consume_ = 0;
+
+       buffer_position_ = 0;
     }
 }

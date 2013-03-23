@@ -16,12 +16,20 @@ namespace Websocket {
         buffer_ = std::make_shared<std::array<uint8_t,129> >();
     }
     
+    uint8_t* Control::payload_begin() {
+        return &buffer_->at(2); 
+    }
+    
     uint8_t* Control::begin() {
         return &buffer_->at(0); 
     }
     
-    uint64_t Control::size() const {
-        return buffer_->size() ;
+    uint8_t Control::size() const {
+        return size_;
+    }
+    
+    uint8_t Control::capacity() const {
+        return buffer_->size();
     }
     
     ControlState Control::state() {
@@ -29,6 +37,7 @@ namespace Websocket {
     }
 
     int Control::process(Header &header) {
+        size_ = header.payload_size() + 2;
         int8_t utf8_expected = 0;
         uint8_t mask_offset = 0;
         uint8_t *buffer = &(*buffer_.get())[0];
@@ -42,25 +51,23 @@ namespace Websocket {
             return 1007;
         }
 
-        std::cout << "in control handler" << std::endl;
-
         buffer[0] = header.begin()[0];
         buffer[1] = header.begin()[1];
         
-        Utilities::Print::hex(&buffer[0],header.payload_size()); std::cout << std::endl;
+        Utilities::Print::hex(&buffer[0],header.payload_size()+2); std::cout << std::endl;
        
     if(   (buffer[0] & 0x0F) == 0x08) {
+        state_ = ControlState::KILL;
         std::cout << "control kill" << std::endl;
         buffer[1] &= 0x7F;
-        state_ = ControlState::KILL;
     } else if ( (buffer[0] & 0x0F) == 0x09 ) {
+        state_ = ControlState::PING;
         buffer[1] &= 0x7F;
         buffer[0] = ( buffer[0] & 0xFA ) | 0x0A;
         std::cout << "control pong"; Utilities::Print::hex(&buffer[0],2);std::cout <<std::endl;
-        state_ = ControlState::PING;
     } else if ( (buffer[0] & 0x0F) == 0x0A ) {
-        std::cout << "pong recieved" << std::endl;
         state_ = ControlState::PONG;
+        std::cout << "pong recieved" << std::endl;
     } else {
       state_ = ControlState::INVALID;
     }

@@ -18,9 +18,10 @@ class Gather {
       int read_chunk(Header &header,ChunkVector &buffer,uint64_t inout_amount_consumed ,bool &out_new_request);
       uint64_t last_consumed() { return last_consumed_; }
       uint64_t next_consume() { return next_consume_; }
-      uint64_t total_size() { return total_size_; }
+      uint64_t &total_size() { return total_size_; }
       uint64_t total_consumed() { return total_consumed_; }
       uint8_t* current_position() { return buffer_position_; }
+      void reset();
     private:
       int8_t utf8_expected_;
       uint8_t mask_offset_;

@@ -20,13 +20,16 @@ class Control {
   public:
     void new_buffer();
     uint8_t* begin();
-    uint64_t size() const;
+    uint8_t* payload_begin();
+    uint8_t size() const;
+    uint8_t capacity() const;
     ControlState state();
     int process(Header &header);
     std::shared_ptr<std::array<uint8_t,129> > buffer() { return buffer_; }
     std::shared_ptr<std::array<uint8_t,129> > &&move_buffer() { return std::move(buffer_); }
   private:
     std::shared_ptr<std::array<uint8_t,129> > buffer_;
+    uint8_t size_;
     ControlState state_;
 };
 }

@@ -133,7 +133,6 @@ using namespace Utilities;
   }
 
   void Session::read_header() {
-    //std::cout << "in read header" << std::endl;
     temp_header_.new_buffer();
     async_read(socket_ ,
             buffer(temp_header_.current_position(), temp_header_.size_left()) ,
@@ -148,21 +147,24 @@ using namespace Utilities;
             cancel_socket( rcode );
             return;
         }
-        if(temp_header_.is_fin()) {
-            if(temp_header_.state() == HeaderState::CONTROL) {
-                control_.new_buffer();
-                async_read(socket_ ,
-                        buffer(control_.begin(),control_.size()) , 
-                        transfer_exactly(temp_header_.payload_size()),
-                        strand_.wrap(std::bind(&Session::handle_control_read, shared_from_this(), std::placeholders::_1)));
+        if(temp_header_.state() == HeaderState::CONTROL) {
+            if(temp_header_.is_fin() == false) {
+                cancel_socket( 1002 );
                 return;
-            } else if (temp_header_.state() == HeaderState::DATA) {
-                header_.transfer(temp_header_);
-                if(new_request_) {
-                    buffer_ = ChunkVector_sp( new ChunkVector());
-                }
-                read_chunk(0,system::error_code());
             }
+            control_.new_buffer();
+            async_read(socket_ ,
+                    buffer(control_.payload_begin(),control_.capacity()) , 
+                    transfer_exactly(temp_header_.payload_size()),
+                    strand_.wrap(std::bind(&Session::handle_control_read, shared_from_this(), std::placeholders::_1)));
+            return;
+        } else if (temp_header_.state() == HeaderState::DATA) {
+            header_.transfer(temp_header_);
+            if(new_request_) {
+                buffer_ = ChunkVector_sp( new ChunkVector());
+                gather_.reset(header_);
+            }
+            read_chunk(0,system::error_code());
         } else {
             async_read(socket_ ,
                     buffer(temp_header_.current_position(), temp_header_.size_left()) ,
@@ -262,7 +264,7 @@ void Session::handle_control_read(const system::error_code& error) {
       control_.process(temp_header_);
       if(control_.state() == ControlState::KILL) {
         auto this_shared = shared_from_this();
-        auto control_buffer = control_.move_buffer();
+        auto control_buffer = control_.buffer();
         async_write(socket_
               , buffer(control_.begin(),control_.size())
               , strand_.wrap([this,this_shared,control_buffer](const system::error_code& error,size_t bytes_transferred){
@@ -273,7 +275,7 @@ void Session::handle_control_read(const system::error_code& error) {
         read_header();
       } else if( control_.state() == ControlState::PONG) {
         auto this_shared = shared_from_this();
-        auto control_buffer = control_.move_buffer();
+        auto control_buffer = control_.buffer();
         async_write(socket_
               , buffer(control_.begin(),control_.size())
               , strand_.wrap([this,this_shared,control_buffer](const system::error_code& error,size_t bytes_transferred){

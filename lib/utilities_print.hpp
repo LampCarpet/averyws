@@ -11,7 +11,7 @@
 namespace Utilities {
     class Print {
         public:
-        static void hex(void *begin, uint64_t size);
+        static void hex(const void *begin, uint64_t size);
    
     };
 }

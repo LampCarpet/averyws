@@ -35,7 +35,13 @@ namespace Websocket {
     }
       
     uint8_t* Header::current_position() {
-        return &buffer_->at(0) + next_read_size_;
+        if(state_ == HeaderState::FIRST) {
+            return &buffer_->at(0);
+        } else if ( state_ == HeaderState::SECOND ) {
+            return &buffer_->at(2);
+        } else {
+            return 0;
+        }
     }
 
     uint64_t Header::size_left() {
@@ -68,7 +74,6 @@ namespace Websocket {
                 || ((buffer_->at(0) & 0x0F) ) == 0x0E
                 || ((buffer_->at(0) & 0x0F) ) == 0x0F
            ) {
-            //todo state to invalid
             return 1002;
         } else {
             is_binary_ = (buffer_->at(0) & 0x02) == 0x02;
@@ -114,8 +119,6 @@ namespace Websocket {
                 | (static_cast<uint64_t>(buffer_->at(9)) <<  0);
         }
 
-        std::cout << "size: " << payload_size_ << std::endl;
-    
     if(   (buffer_->at(0) & 0x0F) == 0x08
        || (buffer_->at(0) & 0x0F) == 0x09 
        || (buffer_->at(0) & 0x0F) == 0x0A ) {
@@ -123,10 +126,6 @@ namespace Websocket {
         if((buffer_->at(0) & 0x80) != 0x80) {
             return 1007;
         }
-
-        std::cout << "control header ";
-        Utilities::Print::hex(&buffer_->at(0),2);
-        std::cout << std::endl;
 
         if(payload_size_ > 125) {
             return 1007;

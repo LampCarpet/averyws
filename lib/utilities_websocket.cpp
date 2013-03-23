@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <utilities_random.hpp>
 #include <utilities_utf8.hpp>
+#include <utilities_print.hpp>
+#include <iostream>
 
 namespace Utilities {
 
