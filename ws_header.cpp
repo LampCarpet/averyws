@@ -45,7 +45,13 @@ namespace Websocket {
     }
 
     uint64_t Header::size_left() {
-        return buffer_->size() - next_read_size_;
+        if(state_ == HeaderState::FIRST) {
+            return buffer_->size();
+        } else if ( state_ == HeaderState::SECOND ) {
+            return buffer_->size() - 2;
+        } else {
+            return buffer_->size() - next_read_size_;
+        }
     }
 
     uint64_t Header::next_read_size() const {
@@ -104,7 +110,6 @@ namespace Websocket {
     }
     
     int Header::process_state_2(bool new_request){
-
         if(payload_size_ == 126) {
             payload_size_ = (static_cast<uint64_t>(buffer_->at(2)) << 8) 
                 | (static_cast<uint64_t>(buffer_->at(3)) << 0);
@@ -117,6 +122,7 @@ namespace Websocket {
                 | (static_cast<uint64_t>(buffer_->at(7)) << 16)
                 | (static_cast<uint64_t>(buffer_->at(8)) <<  8) 
                 | (static_cast<uint64_t>(buffer_->at(9)) <<  0);
+            std::cout << "size" << payload_size_ << std::endl;
         }
 
     if(   (buffer_->at(0) & 0x0F) == 0x08
@@ -128,7 +134,7 @@ namespace Websocket {
         }
 
         if(payload_size_ > 125) {
-            return 1007;
+            return 1002;
         }
         state_ = HeaderState::CONTROL;
     } else if(new_request && (buffer_->at(0) & 0x0F) == 0x00) {

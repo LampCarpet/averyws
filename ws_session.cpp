@@ -46,6 +46,7 @@ using namespace Utilities;
   :  socket_(io_service)
    , strand_(io_service)
    , io_service_(io_service)
+   , rsvc_(0x00)
    , session_manager_(session_manager)
    , authenticated_(false)
    , dealer_(dealer)
@@ -149,6 +150,7 @@ using namespace Utilities;
         }
         if(temp_header_.state() == HeaderState::CONTROL) {
             if(temp_header_.is_fin() == false) {
+                std::cout << "control header does not have fin" << std::endl;
                 cancel_socket( 1002 );
                 return;
             }
@@ -162,8 +164,9 @@ using namespace Utilities;
             header_.transfer(temp_header_);
             if(new_request_) {
                 buffer_ = ChunkVector_sp( new ChunkVector());
-                gather_.reset(header_);
+                gather_.reset();
             }
+            gather_.more(header_.payload_size());
             read_chunk(0,system::error_code());
         } else {
             async_read(socket_ ,
@@ -179,18 +182,26 @@ using namespace Utilities;
 
   void Session::read_chunk(uint64_t previous_read, const system::error_code& error) {
       if (!error) {
+          new_request_ = header_.is_fin();
           int rcode = gather_.read_chunk(header_,*buffer_.get(),previous_read,new_request_);
           if(rcode != 0) {
             cancel_socket( rcode );
-          } else if (new_request_ == true) {
-              io_service_.post(io_strand_.wrap(std::bind(&Session::request, shared_from_this(),buffer_)));
-              read_header();
-          } else {
+            return;
+          } 
+          
+          if(gather_.total_consumed() != gather_.total_size()) {
               async_read(socket_
                       , buffer(gather_.current_position(),gather_.next_consume())
                       , transfer_exactly(gather_.next_consume())
                       , strand_.wrap(std::bind(&Session::read_chunk, shared_from_this(), gather_.next_consume(),  std::placeholders::_1)));
+              return;
           }
+
+          if (new_request_ == true) {
+              io_service_.post(io_strand_.wrap(std::bind(&Session::request, shared_from_this(),buffer_)));
+          }
+          read_header();
+
       } else {
           session_manager_.remove(shared_from_this());
       }
@@ -261,7 +272,11 @@ void Session::write(std::shared_ptr<uint8_t> data, uint64_t size,bool is_binary)
     
 void Session::handle_control_read(const system::error_code& error) {
   if (!error) {
-      control_.process(temp_header_);
+      int rcode = control_.process(temp_header_);
+      if(rcode != 0) {
+          cancel_socket( rcode );
+          return;
+      }
       if(control_.state() == ControlState::KILL) {
         auto this_shared = shared_from_this();
         auto control_buffer = control_.buffer();
@@ -271,9 +286,9 @@ void Session::handle_control_read(const system::error_code& error) {
                       socket_.cancel();
                       session_manager_.remove(this_shared);
               }));
-      } else if( control_.state() == ControlState::PING) {
-        read_header();
       } else if( control_.state() == ControlState::PONG) {
+        read_header();
+      } else if( control_.state() == ControlState::PING) {
         auto this_shared = shared_from_this();
         auto control_buffer = control_.buffer();
         async_write(socket_

@@ -5,23 +5,116 @@
 #include <utilities_utf8.hpp>
 
 #include <cstdint>
+#include <iostream>
+#include <iomanip>
 
 namespace Utilities {
-    int8_t Utf8::validate(const uint8_t byte, int8_t& header_length) {
-        if ( header_length == 0 ) {
-            header_length = Utf8::header_length(byte);
-        } else if ( header_length > 0 && (byte & 0xC0) == 0x80){ 
-            --header_length; 
-        }
-        return header_length;
+namespace Utf8 {
+
+    bool Byte::valid() const{
+        return it_ >= 0;
     }
 
-    int8_t Utf8::header_length(const uint8_t byte) {
-        if( (byte & 0x80) == 0x00) { return  1; }
-        else if( (byte & 0xC0) == 0x80) { return -1; }
-        else if( (byte & 0xD0) == 0xC0) { return  2; }
-        else if( (byte & 0xF0) == 0xE0) { return  3; }
-        else if( (byte & 0xF8) == 0xF0) { return  4; }
-        return -1;
+    bool Byte::complete() const {
+        return it_ == 0;
     }
+
+    bool Byte::validate(const uint8_t byte) {
+        std::cout << "Byte:" << std::hex << std::setfill('0') << std::setw(2) << (int) byte  << std::endl;
+        if ( it_ == 0 ) {
+            return set_length(byte);
+        }
+        
+        if ( (byte & 0xC0) != 0x80){ 
+            std::cout << "1" << " " << length_ <<std::endl;
+            it_ = -1;
+            return false;
+        }
+        
+        if(length_ == 4 && it_ == 3 && previous_byte_ == 0xF4 && byte > 0x8F) {
+            std::cout << "2" << length_ <<std::endl;
+            it_ = -1;
+            return false;
+        } 
+        
+        if(length_ == 4 && it_ == 3 && previous_byte_ == 0xF0 && byte < 0x90) {
+            std::cout << "3" << length_ <<std::endl;
+            it_ = -1;
+            return false;
+        } 
+        
+        if(length_ == 3 && it_ == 2 && previous_byte_ == 0xED && byte > 0xA0 && byte < 0xB0) {
+            std::cout << "4" << length_ <<std::endl;
+            it_ = -1;
+            return false;
+        } 
+        
+        if(length_ == 3 && it_ == 2 && previous_byte_ == 0xED && byte == 0xA0) {
+            previous_byte_ = byte;
+        } 
+        
+        if(length_ == 3 && it_ == 1 && previous_byte_ == 0xA0 && byte == 0x80) {
+            std::cout << "5" << length_ <<std::endl;
+            it_ = -1;
+            return false;
+        } 
+        
+        if(length_ == 3 && it_ == 2 && previous_byte_ == 0xE0 && byte < 0x80) {
+            std::cout << "6" << length_ <<std::endl;
+            it_ = -1;
+            return false;
+        } 
+        
+        --it_;
+        return true;
+    }
+
+    bool Byte::set_length(const uint8_t byte) {
+        if( (byte & 0x80) == 0x00) { 
+            length_ = 1; 
+            it_ = 0;
+            return true;
+        }
+        
+        if( (byte & 0xC0) == 0x80) { 
+            if( byte == 0xE0) {
+                previous_byte_ = byte;
+            }
+            it_ = -1;
+            return false;
+        }
+        
+        if( (byte & 0xE0) == 0xC0) {
+            if ( byte == 0xC1 || byte == 0xC0) {
+                it_ = -1;
+                return false;
+            }
+           
+            length_ = 2; 
+            it_ = 1;
+            return true;
+        }
+        
+        if( (byte & 0xF0) == 0xE0) {
+            length_ = 3; 
+            it_ = 2;
+            previous_byte_ = byte;
+            return true;
+        }
+        
+        if( (byte & 0xF8) == 0xF0) {
+            if (byte > 0xF4) {
+                it_ = -1;
+                return false;
+            }
+            length_ = 4; 
+            it_ = 3;
+            previous_byte_ = byte;
+            return true;
+        }
+
+        it_ = -1;
+        return false;
+    }
+}
 }

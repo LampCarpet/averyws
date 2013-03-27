@@ -8,12 +8,24 @@
 #include <cstdint>
 
 namespace Utilities {
+namespace Utf8 {
 
-class Utf8 {
+class Byte{
     public:
-    static int8_t validate(const uint8_t byte, int8_t& header_length);
-    static int8_t header_length(const uint8_t byte);
-            
+        Byte(): length_{0},it_{0} {};
+        bool validate(const uint8_t byte);
+        bool valid() const;
+        bool complete() const;
+        uint8_t &length(){return length_;}
+        int8_t  &it(){return it_;}
+    private:
+        bool set_length(const uint8_t byte);
+        uint8_t length_;
+        int8_t  it_;
+        //only get/set very rarely
+        uint8_t previous_byte_;
 };
+
+}
 }
 #endif

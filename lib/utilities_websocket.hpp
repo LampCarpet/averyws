@@ -9,6 +9,10 @@
 
 namespace Utilities {
 
+namespace Utf8 {
+    class Byte;
+}
+
 class Websocket {
   public:
     static uint64_t reserve(const uint64_t length , const uint16_t flags);
@@ -16,7 +20,7 @@ class Websocket {
     static void generateMask(uint8_t *data);
     static void flags2header(uint8_t *data, uint16_t flags);
     static uint8_t length2header(uint8_t *data, uint64_t length);
-    static void applyMask(uint8_t* it,const uint64_t length,const uint8_t* mask,uint8_t &mask_offset,bool is_utf8,int8_t &utf8_offset);
+    static void applyMask(uint8_t* it,const uint64_t length,const uint8_t* mask,uint8_t &mask_offset,bool is_utf8,Utf8::Byte &utf8);
   private:
     Websocket();
     Websocket(const Websocket&);

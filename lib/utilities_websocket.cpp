@@ -100,25 +100,31 @@ uint8_t Websocket::length2header(uint8_t *data, uint64_t length){
     }
 }
 
-void Websocket::applyMask(uint8_t* it,const uint64_t length,const uint8_t* mask,uint8_t &mask_offset,bool is_utf8,int8_t &utf8_offset) {
+void Websocket::applyMask(uint8_t* it,const uint64_t length,const uint8_t* mask,uint8_t &mask_offset,bool is_utf8,Utf8::Byte &utf8) {
+    if( length == 0) { return ; }
     if( mask[0] == 0x00 && mask[1] == 0x00 && mask[2] == 0x00 && mask[3] == 0x00) {
-        //todo utf8 validation
+        if(is_utf8 == false) { return; }
+        auto end = it + length;
+        for(;it < end; ++it) {
+            if(utf8.validate(*it) == false){return;}
+        }
         return ;
     }
-    if( length == 0) { return ; }
 
     auto end = it + length;
     if(length >= 4) {
         for( auto end_4 = end-4 ; it <= end_4; it+=4) {
             //std::cout << "consumed 4 bytes " << *it << *(it+1)<< *(it+2)<< *(it+3);
             it[0] ^= mask[(mask_offset + 0) % 4];
-            if(Utf8::validate(it[0],utf8_offset) < 0){return;}
             it[1] ^= mask[(mask_offset + 1) % 4];
-            if(Utf8::validate(it[0],utf8_offset) < 0){return;}
             it[2] ^= mask[(mask_offset + 2) % 4];
-            if(Utf8::validate(it[0],utf8_offset) < 0){return;}
             it[3] ^= mask[(mask_offset + 3) % 4];
-            if(Utf8::validate(it[0],utf8_offset) < 0){return;}
+            if(is_utf8 == true) {
+                if(utf8.validate(it[0])  == false){return;}
+                if(utf8.validate(it[1])  == false){return;}
+                if(utf8.validate(it[2])  == false){return;}
+                if(utf8.validate(it[3])  == false){return;}
+            }
             //std::cout << " to " << *it << *(it+1)<< *(it+2)<< *(it+3) << std::endl;
         }
     }
@@ -126,7 +132,7 @@ void Websocket::applyMask(uint8_t* it,const uint64_t length,const uint8_t* mask,
     for(;it < end; ++it, ++mask_offset) {
             //std::cout << "consuming 1 byte " << *it;
             *it ^= mask[mask_offset % 4];
-            if(Utf8::validate(*it,utf8_offset) < 0){return;}
+            if(is_utf8 == true && utf8.validate(*it) == false){return;}
             //std::cout << " to " << *it <<  std::endl;
     }
 }

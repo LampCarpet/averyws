@@ -9,34 +9,31 @@
 #include <iostream>
 
 namespace Websocket {
-    int Gather::read_chunk(Header &header,ChunkVector &buffer,uint64_t amount_consumed ,bool &out_new_request) {
-          
+    int Gather::read_chunk(Header &header,ChunkVector &buffer,uint64_t amount_consumed ,bool &new_request) {
           if(amount_consumed != 0) {
               std::cout << "applying mask" << std::endl;
               Utilities::Websocket::applyMask(buffer_position_
                       , amount_consumed
                       , &header.mask(),mask_offset_
                       , !header.is_binary()
-                      , utf8_expected_);
+                      , utf8_);
 
-              if(utf8_expected_ < 0) {
+              if(!utf8_.valid()) {
                   std::cout << "utf8 failure" << std::endl;
                   return 1007;
               }
           total_consumed_ += amount_consumed;
-          last_consumed_ = amount_consumed;
           }
 
           if(total_size_ == total_consumed_) {
-              out_new_request = header.is_fin();
-              if(out_new_request == true) {
-                  if(utf8_expected_ != 0) {
+              if(new_request == true) {
+                  if(!utf8_.complete()) {
                       std::cout << "utf8 failure, not completed" << std::endl;
                       return 1007;
-                  } else if(total_size_ == 0 && total_consumed_ == 0 && amount_consumed == 0) {
-                      buffer.close_last_chunk( 0 );
+                  //} else if( (total_size_ == 0 && total_consumed_ == 0 && amount_consumed == 0)) {
+                  //    buffer.close_last_chunk( 0 );
                   } else {
-                      buffer.close_last_chunk( ( ( total_size_ - 1 ) % buffer.chunk_size() ) + 1 );
+                      buffer.close_last_chunk( ( buffer.chunk_size() + total_size_ - 1) % buffer.chunk_size() + 1 );
                   }
               }
               next_consume_ = 0;
@@ -47,38 +44,45 @@ namespace Websocket {
                     buffer_position_ = &buffer.at(0);
                   } else {
                     buffer.new_chunk();
+                    buffer_position_ = &buffer.at(total_consumed_);
                   }
+              } else {
+                  buffer_position_ = &buffer.at(total_consumed_);
               }
 
               if(total_size_ > buffer.size()) {
-                  amount_consumed = buffer.size() - total_consumed_;
+                next_consume_ = buffer.size() - total_consumed_;
+              } else {
+                next_consume_ = total_size_ - total_consumed_;
               }
-              next_consume_ = amount_consumed;
           }
 
-          std::cout << "payload total size: " << total_size_ 
-              << " payload total consumed: " << total_consumed_
-              << " payload last consumed: " << last_consumed_ 
-              << " next consume amout: " << next_consume_
-              << " total buffer size " << buffer.size() << std::endl;
+          //std::cout << "payload total size: " << total_size_ 
+          //    << " payload total consumed: " << total_consumed_
+          //    << " next consume amout: " << next_consume_
+          //    << " total buffer size " << buffer.size() << std::endl;
 
-          if(buffer.size() != 0) {
-            buffer_position_ = &buffer.at(total_consumed_);
+          if(total_consumed_ > 0) {
           }
           return 0;
 
     }
       
     void Gather::reset() {
-       utf8_expected_ = 0;
+       utf8_ = Utilities::Utf8::Byte();
        mask_offset_ = 0;
 
        total_size_ = 0;
        total_consumed_ = 0;
       
-       last_consumed_ = 0;
        next_consume_ = 0;
 
        buffer_position_ = 0;
+    }
+      
+    void Gather::more(uint64_t size) {
+        std::cout << "payload increased by " << size << " from " << total_size_ << " to " << total_size_ + size << std::endl;
+        total_size_ += size;
+        mask_offset_ = 0;
     }
 }
