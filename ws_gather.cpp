@@ -11,7 +11,6 @@
 namespace Websocket {
     int Gather::read_chunk(Header &header,ChunkVector &buffer,uint64_t amount_consumed ,bool &new_request) {
           if(amount_consumed != 0) {
-              std::cout << "applying mask" << std::endl;
               Utilities::Websocket::applyMask(buffer_position_
                       , amount_consumed
                       , &header.mask(),mask_offset_
@@ -38,17 +37,10 @@ namespace Websocket {
               }
               next_consume_ = 0;
           } else {
-              if(total_size_ >= buffer.size()) {
-                  if(buffer.size() == 0) {
-                    buffer.new_chunk();
-                    buffer_position_ = &buffer.at(0);
-                  } else {
-                    buffer.new_chunk();
-                    buffer_position_ = &buffer.at(total_consumed_);
-                  }
-              } else {
-                  buffer_position_ = &buffer.at(total_consumed_);
+              if (total_consumed_ == buffer.size()) {
+                buffer.new_chunk();
               }
+              buffer_position_ = &buffer.at(total_consumed_);
 
               if(total_size_ > buffer.size()) {
                 next_consume_ = buffer.size() - total_consumed_;
@@ -62,8 +54,6 @@ namespace Websocket {
           //    << " next consume amout: " << next_consume_
           //    << " total buffer size " << buffer.size() << std::endl;
 
-          if(total_consumed_ > 0) {
-          }
           return 0;
 
     }
@@ -81,7 +71,7 @@ namespace Websocket {
     }
       
     void Gather::more(uint64_t size) {
-        std::cout << "payload increased by " << size << " from " << total_size_ << " to " << total_size_ + size << std::endl;
+        //std::cout << "payload increased by " << size << " from " << total_size_ << " to " << total_size_ + size << std::endl;
         total_size_ += size;
         mask_offset_ = 0;
     }

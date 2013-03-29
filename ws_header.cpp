@@ -122,7 +122,6 @@ namespace Websocket {
                 | (static_cast<uint64_t>(buffer_->at(7)) << 16)
                 | (static_cast<uint64_t>(buffer_->at(8)) <<  8) 
                 | (static_cast<uint64_t>(buffer_->at(9)) <<  0);
-            std::cout << "size" << payload_size_ << std::endl;
         }
 
     if(   (buffer_->at(0) & 0x0F) == 0x08

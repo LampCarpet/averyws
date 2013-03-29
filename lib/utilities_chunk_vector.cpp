@@ -38,7 +38,7 @@ void ChunkVector::close_last_chunk(const uint64_t chunk_size){
     if(chunk_vector_.size() > 0) {
         chunk_vector_.back()->resize(chunk_size);
     }
-    std::cout << "closed last chunk at chunk size = " << chunk_size << " for a total size of " <<  size() << std::endl;
+    //std::cout << "closed last chunk at chunk size = " << chunk_size << " for a total size of " <<  size() << std::endl;
     open_ = false;
 }
 

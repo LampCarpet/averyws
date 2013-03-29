@@ -24,7 +24,7 @@
 //  NOTICE the spaces in the binary. Those spaces separate protocol from data.
 //
 //  I.   Continuation bytes start with 0b10 so if the first 2 bits are not equal to 0b10 the continuation byte is invalid
-//       What does this mean? if we mask the first 2 bits with 0xC0 (0b1100) and the result isnt 0x80 (0b1999) 
+//       What does this mean? if we mask the first 2 bits with 0xC0 (0b1100) and the result isnt 0x80 (0b1000) 
 //       then it's invalid 
 //       
 //  II.  Overly long utf8 encoding is invalid. If you can rewrite the same encoding with less bytes
@@ -75,7 +75,6 @@ namespace Utf8 {
         
         //error I
         if ( (byte & 0xC0) != 0x80){ 
-            std::cout << "@@1" << std::endl;
             it_ = -1;
             return false;
         }
@@ -84,7 +83,6 @@ namespace Utf8 {
         //error II: 0xF08F (0b11110 000 10 001111) has 5 zeros in a row
         //                          ^^^    ^^
         if(length_ == 4 && it_ == 3 && previous_byte_ == 0xF0 && byte <= 0x8F) {
-            std::cout << "@@2" << std::endl;
             it_ = -1;
             return false;
         } 
@@ -92,7 +90,6 @@ namespace Utf8 {
         //error II: 0xE090 (0b1110 0000 10 011111) has 5 zeros in a row
         //                         ^^^^    ^
         if(length_ == 3 && it_ == 2 && previous_byte_ == 0xE0 && byte <= 0x9F) {
-            std::cout << "@@3" << std::endl;
             it_ = -1;
             return false;
         } 
@@ -101,17 +98,15 @@ namespace Utf8 {
         //                           ^^^    ^^ 
         //zero-filled, so the 0b10001  highlighted above is actually 0b00010001
         if(length_ == 4 && it_ == 3 && previous_byte_ == 0xF4 && byte >= 0x90) {
-            std::cout << "@@4" << std::endl;
             it_ = -1;
             return false;
         } 
         
        
-        //error IV: 0xED84 (0b1110 1101 10 100000) encodes D8 which is the start of the illegal sequence
+        //error IV: 0xEDA0 (0b1110 1101 10 100000) encodes D8 which is the start of the illegal sequence
         //                         ^^^^    ^^^^
         //it so happens that 3 bytes has no zero filling
         if(length_ == 3 && it_ == 2 && previous_byte_ == 0xED && byte >= 0xA0) {
-            std::cout << "@@5" << std::endl;
             it_ = -1;
             return false;
         } 
@@ -132,7 +127,6 @@ namespace Utf8 {
         if( (byte & 0xE0) == 0xC0) {
             //error V (error II implied)
             if ( byte == 0xC1 || byte == 0xC0) {
-                std::cout << "@@6" << std::endl;
                 it_ = -1;
                 return false;
             }
@@ -151,7 +145,6 @@ namespace Utf8 {
         if( (byte & 0xF8) == 0xF0) {
             //error III
             if (byte > 0xF4) {
-                std::cout << "@@7" << std::endl;
                 it_ = -1;
                 return false;
             }
@@ -163,12 +156,10 @@ namespace Utf8 {
         
         //error, it's a continuation byte (0b10 XXXXXX) but this function is for headers only 
         if( (byte & 0xC0) == 0x80) { 
-            std::cout << "@@8" << std::endl;
             it_ = -1;
             return false;
         }
 
-        std::cout << "@@9" << std::endl;
         it_ = -1;
         return false;
     }
